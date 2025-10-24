@@ -2,57 +2,59 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>iPhone 影片分析播放器 (含縮放)</title>
-<style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>iPhone 影片分析播放器 (無全螢幕)</title>
+    <style>
 /* ------------------------------------------------ */
-/* 核心安全區域設定 - 確保 iOS PWA 正確顯示 */
+/* 核心樣式：確保內容始終在瀏覽器安全區內 */
 /* ------------------------------------------------ */
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     margin: 0;
     padding: 0;
-    
     display: flex;
     flex-direction: column;
     align-items: center;
     background-color: #f0f0f0;
     user-select: none;
     
-    /* 讓整個 body 始終能夠滾動 (關鍵修正) */
-    min-height: 100vh; 
-    
     /* 讓內容避開底部的系統工具欄/Home Bar (關鍵修正) */
     padding-bottom: constant(safe-area-inset-bottom);
     padding-bottom: env(safe-area-inset-bottom);
+    
+    /* 讓 body 滾動條消失，因為內容應該總是佔滿視口 */
+    height: 100vh;
 }
 
 .player-container {
     width: 100%;
     max-width: 900px;
     background-color: #333;
-    /* 確保 player-container 佔據整個可用空間並啟用滾動 */
-    min-height: 100vh;
-    flex-grow: 1; 
+    /* 確保容器佔滿所有可用高度，減去控制面板的高度 (假設 160px) */
+    height: 100%;
+    /* 啟用 Flexbox 以堆疊影片和控制面板 */
     display: flex; 
     flex-direction: column;
 }
-/* ------------------------------------------------ */
-/* 播放器佈局 & 內置樣式 (與您上次提供的內容一致) */
-/* ------------------------------------------------ */
+
+/* 影片容器：佔據 player-container 剩餘空間 */
 .video-wrapper {
     position: relative; 
     line-height: 0;
     overflow: hidden; 
-    flex-grow: 1; /* 佔據 player-container 剩餘高度 */
+    flex-grow: 1; 
+    /* 允許單指平移時，觸控事件能被 video-display 捕獲 */
     touch-action: none; 
 }
 
+/* 影片縮放和平移容器 */
 .video-display {
     width: 100%;
     height: 100%;
     transform-origin: center center; 
     transition: transform 0.1s ease-out; 
+    /* 讓這個元素可以接收觸控，並防止瀏覽器默認行為 */
+    touch-action: none; 
 }
 
 #videoPlayer {
@@ -61,111 +63,108 @@ body {
     background-color: #000;
 }
 
-/* --- 浮水印播放控制區域 --- */
+/* ------------------------------------------------ */
+/* 舊浮水印控制區域 (現在是空的，但保留 ID 以防 JS 報錯) */
 .controls-overlay {
-    position: absolute;
-    bottom: 10px; 
-    left: 50%;
-    transform: translateX(-50%); 
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 5px 15px;
-    background-color: rgba(0, 0, 0, 0.2); 
-    border-radius: 8px;
-    z-index: 500; 
-    max-width: 90%; 
-    transition: background-color 0.3s;
-    
-    /* 注意：這裡不再需要安全區域邊距，因為 body 已經處理了 */
+    display: none; /* 隱藏舊的浮水印區域 */
 }
-.controls-overlay:hover { background-color: rgba(0, 0, 0, 0.4); }
-.controls-overlay button {
-    background-color: rgba(68, 68, 68, 0.3); 
-    border: none; color: #fff; padding: 8px 10px; font-size: 16px;
-    height: 40px; line-height: 20px; min-width: 40px; flex-grow: 0;
-    transition: background-color 0.2s;
-}
-.controls-overlay button:hover { background-color: #007aff; }
-#togglePlay { background-color: #007aff; font-size: 18px; padding: 8px 15px; }
-#togglePlay:hover { background-color: #0056b3; }
 
 /* --- 速度選單 (浮動) --- */
 .speed-menu {
-    position: absolute; background-color: rgba(51, 51, 51, 0.9); 
-    border-radius: 4px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6);
-    padding: 5px; z-index: 1000; display: flex; flex-direction: column; gap: 4px;
+    position: absolute;
+    /* 速度選單的定位將在 JS 中動態計算，讓它浮動在控制面板之上 */
+    background-color: rgba(51, 51, 51, 0.9); 
+    border-radius: 4px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6);
+    padding: 5px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 }
 .speed-menu button {
-    background-color: rgba(68, 68, 68, 0.6); color: #fff; padding: 6px 12px;
-    font-size: 14px; min-width: 100px; flex-grow: 1; height: auto;
+    background-color: rgba(68, 68, 68, 0.6); 
+    color: #fff;
+    padding: 6px 12px;
+    font-size: 14px;
+    min-width: 100px;
+    flex-grow: 1;
+    height: auto;
 }
-.speed-menu button.active { background-color: #007aff; }
+.speed-menu button.active {
+    background-color: #007aff;
+}
 
-/* --- 下方控制面板 (背景完全透明) --- */
+/* ------------------------------------------------ */
+/* 下方控制面板 (包含所有按鈕) */
+/* ------------------------------------------------ */
 .controls-panel {
     padding: 10px;
-    background-color: transparent; 
+    background-color: #333; /* 為控制面板添加背景色 */
     color: #fff;
     display: flex;
     flex-direction: column;
     gap: 10px;
-    /* 這裡不需要 max-height 或 overflow: auto, 除非在 full screen */
+    flex-shrink: 0; /* 確保它不會被壓縮 */
 }
-/* ... 保持 controls-group, button, input 等樣式不變 ... */
-.controls-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* 控制項群組 */
+.controls-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap; /* 允許換行 */
+}
+/* 所有控制項的基礎樣式 */
 button, select, input[type="number"], #fileInputLabel {
-    padding: 8px 12px; font-size: 14px; cursor: pointer; border: none;
-    border-radius: 4px; background-color: #444; color: #fff;
-    box-sizing: border-box; height: 40px; line-height: 20px; white-space: nowrap;
+    padding: 8px 12px;
+    font-size: 14px;
+    cursor: pointer;
+    border: none;
+    border-radius: 4px;
+    background-color: #444; 
+    color: #fff;
+    box-sizing: border-box;
+    height: 40px; 
+    line-height: 20px;
+    white-space: nowrap;
 }
+/* 專門為新的播放控制按鈕設計樣式 */
+.controls-group.controls-playback button {
+    background-color: rgba(68, 68, 68, 0.6);
+    min-width: 40px;
+}
+#togglePlay {
+    background-color: #007aff; 
+    font-size: 18px;
+    padding: 8px 15px;
+    min-width: 50px;
+}
+#togglePlay:hover {
+     background-color: #0056b3; 
+}
+/* 資訊顯示 */
 #timeInfo { min-width: 120px; text-align: right; }
 #frameInfo { min-width: 60px; }
+
+/* 進度條 */
 input[type="range"] {
-    flex-grow: 3; min-width: 100px; -webkit-appearance: none; height: 8px;
-    background: #555; border-radius: 5px; cursor: pointer;
+    flex-grow: 3; min-width: 100px;
+    -webkit-appearance: none; height: 8px; background: #555;
+    border-radius: 5px; cursor: pointer;
 }
 input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none; appearance: none; width: 15px;
     height: 15px; border-radius: 50%; background: #fff;
 }
+/* 檔案選擇和 FPS 選單 */
 #fileInputLabel { background-color: #007aff; flex-grow: 0; }
-#fullscreenBtn { background-color: #444; flex-grow: 0; min-width: 40px; }
 #fpsSelect { flex-grow: 0; min-width: 70px; }
 #customFpsInput { flex-grow: 0; width: 60px; text-align: center; background-color: #333; }
-#fpsDisplay { flex-grow: 1; text-align: left; }
 
-/* ------------------------------------------------ */
-/* 全螢幕模式 (Full Screen) - 修正滾動和邊距 */
-/* ------------------------------------------------ */
-.player-container:-webkit-full-screen, .player-container:fullscreen { 
-    width: 100%; 
-    height: 100%; 
-    max-width: none; 
-    display: flex; 
-    flex-direction: column;
-    /* 移除全螢幕容器的安全邊距，讓它佔滿螢幕 */
-    padding-bottom: 0 !important; 
-}
+/* 刪除所有全螢幕模式相關的 CSS 規則 */
 
-.player-container:-webkit-full-screen .video-wrapper, 
-.player-container:fullscreen .video-wrapper {
-    flex-grow: 1;
-    overflow: hidden; 
-}
-
-/* 確保全螢幕模式下的控制面板可以滾動 */
-.player-container:-webkit-full-screen .controls-panel,
-.player-container:fullscreen .controls-panel {
-    flex-grow: 0;
-    /* 為了在橫向模式下能看到所有按鈕，強制啟用滾動 */
-    max-height: 150px; 
-    overflow-y: auto; 
-    -webkit-overflow-scrolling: touch; 
-}
-</style>
-
-
+    </style>
 </head>
 <body>
 
@@ -179,15 +178,7 @@ input[type="range"]::-webkit-slider-thumb {
         <canvas id="videoCanvas" style="display:none;"></canvas>
         
         <div class="controls-overlay" id="controlsOverlay">
-            <button id="stepBackward" title="後退 0.1 秒">⏮</button>
-            <button id="frameBackward" title="逐幀退後">⏴</button>
-            <button id="togglePlay">▶</button>
-            <button id="frameForward" title="逐幀前進">⏵</button>
-            <button id="stepForward" title="快進 0.1 秒">⏭</button>
-            
-            <button id="speedBtn" title="播放速度">⏱</button>
-            <button id="saveFrame" title="儲存畫面">🖼</button>
-        </div>
+            </div>
         
         <div class="speed-menu" id="speedMenu" style="display:none;">
             <button data-rate="2.0">2x 速度</button>
@@ -206,13 +197,22 @@ input[type="range"]::-webkit-slider-thumb {
             <span class="status-info" id="frameInfo">F: 0</span>
             <span class="status-info" id="timeInfo">00:00.00 / 00:00.00</span>
         </div>
+        
+        <div class="controls-group controls-playback">
+            <button id="stepBackward" title="後退 0.1 秒">⏮</button>
+            <button id="frameBackward" title="逐幀退後">⏴</button>
+            <button id="togglePlay">▶</button>
+            <button id="frameForward" title="逐幀前進">⏵</button>
+            <button id="stepForward" title="快進 0.1 秒">⏭</button>
+            
+            <button id="speedBtn" title="播放速度">⏱</button>
+            <button id="saveFrame" title="儲存畫面">🖼</button>
+        </div>
 
         <div class="controls-group controls-setup">
             <label for="fileInput" id="fileInputLabel">選擇影片</label>
             <input type="file" id="fileInput" accept="video/*">
             
-            <button id="fullscreenBtn" title="全螢幕">⛶</button>
-
             <span class="status-info">FPS:</span>
             <select id="fpsSelect" title="設定影片 FPS">
                 <option value="30" selected>30</option>
@@ -224,8 +224,7 @@ input[type="range"]::-webkit-slider-thumb {
             </select>
             <input type="number" id="customFpsInput" value="30" min="1" step="1" style="display:none;" title="自訂 FPS 值">
             
-            <span class="status-info" id="fpsDisplay">目前 FPS: 30</span>
-        </div>
+            </div>
         
     </div>
 </div>
@@ -234,24 +233,25 @@ input[type="range"]::-webkit-slider-thumb {
     const video = document.getElementById('videoPlayer');
     const fileInput = document.getElementById('fileInput');
     const togglePlayBtn = document.getElementById('togglePlay');
-    const fullscreenBtn = document.getElementById('fullscreenBtn');
+    // const fullscreenBtn = document.getElementById('fullscreenBtn'); // 移除
     const saveFrameBtn = document.getElementById('saveFrame');
     const progressBar = document.getElementById('progressBar');
     const timeInfo = document.getElementById('timeInfo');
     const frameInfo = document.getElementById('frameInfo');
     const fpsSelect = document.getElementById('fpsSelect');
     const customFpsInput = document.getElementById('customFpsInput');
-    const fpsDisplay = document.getElementById('fpsDisplay');
+    // const fpsDisplay = document.getElementById('fpsDisplay'); // 移除
     const playerContainer = document.getElementById('playerContainer');
     const videoCanvas = document.getElementById('videoCanvas');
     const ctx = videoCanvas.getContext('2d');
     
-    const controlsOverlay = document.getElementById('controlsOverlay');
+    // const controlsOverlay = document.getElementById('controlsOverlay'); // 移除
     const speedBtn = document.getElementById('speedBtn');
     const speedMenu = document.getElementById('speedMenu');
     const speedOptions = speedMenu.querySelectorAll('button');
     const videoWrapper = document.querySelector('.video-wrapper');
     const videoDisplay = document.getElementById('videoDisplay'); 
+    const controlsPanel = document.querySelector('.controls-panel'); // 新增
 
     let assumedFPS = 30; 
     let frameDuration = 1 / assumedFPS;
@@ -259,18 +259,18 @@ input[type="range"]::-webkit-slider-thumb {
     let isDragging = false; 
     let lastObjectURL = null; 
     
-    // --- 縮放/平移狀態變數 (新增/修改) ---
+    // --- 縮放/平移狀態變數 (保持不變) ---
     let currentScale = 1;
     let initialDistance = 0;
     let initialScale = 1;
 
-    // 平移變數 (NEW)
+    // 平移變數 (保持不變)
     let translateX = 0;
     let translateY = 0;
     let startX = 0;
     let startY = 0;
     let lastTranslateX = 0;
-    let lastTranslateY = 0; // 用於記錄觸摸開始時的平移狀態
+    let lastTranslateY = 0; 
     
     // 啟動時清理影片源
     video.src = ''; 
@@ -287,7 +287,7 @@ input[type="range"]::-webkit-slider-thumb {
 
     // --- 觸摸事件處理 (縮放和平移) ---
     videoDisplay.addEventListener('touchstart', (e) => {
-        e.preventDefault(); // 防止默認的滾動或縮放行為
+        e.preventDefault(); 
         
         lastTranslateX = translateX;
         lastTranslateY = translateY;
@@ -296,35 +296,30 @@ input[type="range"]::-webkit-slider-thumb {
             const t1 = e.touches[0];
             const t2 = e.touches[1];
             
-            // 縮放：計算初始距離
             initialDistance = Math.sqrt(
                 Math.pow(t2.clientX - t1.clientX, 2) + 
                 Math.pow(t2.clientY - t1.clientY, 2)
             );
             initialScale = currentScale; 
             
-            // 雙指平移起點：計算雙指中心點
             startX = (t1.clientX + t2.clientX) / 2;
             startY = (t1.clientY + t2.clientY) / 2;
 
         } else if (e.touches.length === 1) {
-             // 單指平移起點
              startX = e.touches[0].clientX;
              startY = e.touches[0].clientY;
         }
     }, { passive: false });
 
     videoDisplay.addEventListener('touchmove', (e) => {
-        e.preventDefault(); // 防止默認的滾動或縮放行為
+        e.preventDefault(); 
         
         const rect = videoDisplay.getBoundingClientRect();
-        // 計算縮放後的影片邊界與原影片邊界之間的距離
         const maxPanX = (rect.width * currentScale - rect.width) / 2;
         const maxPanY = (rect.height * currentScale - rect.height) / 2;
 
 
         if (e.touches.length === 2) {
-            // --- 雙指處理：縮放 AND 平移 ---
             
             const t1 = e.touches[0];
             const t2 = e.touches[1];
@@ -336,10 +331,10 @@ input[type="range"]::-webkit-slider-thumb {
             );
             if (initialDistance > 0) {
                 let newScale = initialScale * (currentDistance / initialDistance);
-                currentScale = Math.min(Math.max(1, newScale), 5); // 最小縮放設定為 1x
+                currentScale = Math.min(Math.max(1, newScale), 5); 
             }
 
-            // 2. 平移計算 (基於中心點移動)
+            // 2. 平移計算
             const currentX = (t1.clientX + t2.clientX) / 2;
             const currentY = (t1.clientY + t2.clientY) / 2;
             
@@ -351,7 +346,6 @@ input[type="range"]::-webkit-slider-thumb {
 
 
         } else if (e.touches.length === 1 && currentScale > 1) {
-            // --- 單指處理：平移 (僅當已縮放時才啟用) ---
             
             const deltaX = e.touches[0].clientX - startX;
             const deltaY = e.touches[0].clientY - startY;
@@ -360,11 +354,11 @@ input[type="range"]::-webkit-slider-thumb {
             translateY = lastTranslateY + deltaY;
         }
         
-        // 限制平移範圍，防止移出畫面
+        // 限制平移範圍
         translateX = Math.min(Math.max(translateX, -maxPanX), maxPanX);
         translateY = Math.min(Math.max(translateY, -maxPanY), maxPanY);
         
-        // 如果縮放為 1x，則強制歸零平移
+        // 縮放歸零時，平移也歸零
         if (currentScale <= 1.01) { 
              translateX = 0;
              translateY = 0;
@@ -376,13 +370,11 @@ input[type="range"]::-webkit-slider-thumb {
     }, { passive: false });
 
     videoDisplay.addEventListener('touchend', () => {
-        // 重設距離和狀態
         initialDistance = 0;
         initialScale = currentScale;
         lastTranslateX = translateX;
         lastTranslateY = translateY;
         
-        // 確保縮放值不會是 1.01，而是準確的 1
         if (currentScale <= 1.01) {
             currentScale = 1;
             translateX = 0;
@@ -390,9 +382,8 @@ input[type="range"]::-webkit-slider-thumb {
             applyTransform();
         }
     });
-
     
-    // --- FPS 處理邏輯 (保持不變) ---
+    // --- FPS 處理邏輯 (修改：移除 fpsDisplay) ---
     function updateFps(fpsValue) {
         let newFps;
         if (fpsValue === 'custom') {
@@ -406,7 +397,7 @@ input[type="range"]::-webkit-slider-thumb {
         if (newFps > 0) {
             assumedFPS = newFps;
             frameDuration = 1 / assumedFPS;
-            fpsDisplay.textContent = `目前 FPS: ${assumedFPS}`;
+            // 移除 fpsDisplay.textContent = `目前 FPS: ${assumedFPS}`;
         } else if (fpsValue !== 'custom') {
             fpsSelect.value = assumedFPS.toString();
         }
@@ -418,13 +409,20 @@ input[type="range"]::-webkit-slider-thumb {
     });
     updateFps(fpsSelect.value); 
 
-    // --- 速度選單邏輯 (保持不變) ---
+    // --- 速度選單邏輯 (修改：重新計算定位) ---
     speedBtn.addEventListener('click', (e) => {
         const rect = speedBtn.getBoundingClientRect();
-        const videoWrapperRect = videoWrapper.getBoundingClientRect();
-        const absoluteRight = videoWrapperRect.right - rect.right;
-        speedMenu.style.bottom = `${controlsOverlay.offsetHeight + 10}px`; 
-        speedMenu.style.right = `${absoluteRight - (rect.width / 2) + 20}px`; 
+        const controlsPanelRect = controlsPanel.getBoundingClientRect(); // 使用 controlsPanel 作為參考
+        
+        // 將菜單定位在 controlsPanel 的頂部邊界，並對齊 speedBtn 的右側
+        const bottomOffset = controlsPanelRect.height - (rect.top - controlsPanelRect.top) + 10;
+        
+        // 讓菜單右邊緣對齊按鈕右邊緣
+        const rightOffset = controlsPanelRect.right - rect.right; 
+        
+        speedMenu.style.bottom = `${bottomOffset}px`; 
+        speedMenu.style.right = `${rightOffset}px`; 
+        
         speedMenu.style.display = speedMenu.style.display === 'flex' ? 'none' : 'flex';
         e.stopPropagation(); 
     });
@@ -484,7 +482,7 @@ input[type="range"]::-webkit-slider-thumb {
             video.currentTime = 0; 
             updateTimeInfo(0, video.duration || 0);
 
-            // 重設縮放和平移狀態 (NEW)
+            // 重設縮放和平移狀態
             currentScale = 1;
             translateX = 0;
             translateY = 0;
@@ -612,19 +610,8 @@ input[type="range"]::-webkit-slider-thumb {
         document.body.removeChild(link);
     });
 
-    // 8. 全螢幕
-    fullscreenBtn.addEventListener('click', () => {
-        if (!video.src) return;
-        if (playerContainer.requestFullscreen) {
-            playerContainer.requestFullscreen();
-        } else if (playerContainer.webkitRequestFullscreen) {
-            playerContainer.webkitRequestFullscreen();
-        } else if (video.webkitEnterFullscreen) {
-             video.webkitEnterFullscreen();
-        }
-    });
-
+    // 8. 移除全螢幕按鈕邏輯
+    // fullscreenBtn.addEventListener('click', ...); // 移除
 </script>
-
 </body>
 </html>
