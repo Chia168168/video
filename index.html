@@ -4,178 +4,176 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>iPhone 影片分析播放器 (含縮放)</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            background-color: #f0f0f0;
-            user-select: none;
-        }
-        .player-container {
-            width: 100%;
-            max-width: 900px;
-            background-color: #333;
-        }
-        
-        /* 影片容器：負責定位浮水印 */
-        .video-wrapper {
-            position: relative; 
-            line-height: 0;
-            overflow: hidden; /* 確保縮放不會溢出邊界 */
-        }
-        
-        /* 影片縮放和平移容器 (NEW) */
-        .video-display {
-            width: 100%;
-            height: 100%;
-            /* 讓縮放和平移的中心點在影片中央 */
-            transform-origin: center center; 
-            transition: transform 0.1s ease-out; /* 平滑縮放效果 */
-        }
+<style>
+/* ------------------------------------------------ */
+/* 核心安全區域設定 - 確保 iOS PWA 正確顯示 */
+/* ------------------------------------------------ */
+/* 設定 body 的 viewport-fit=cover */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    margin: 0;
+    /* 使用 iOS 變量將內容限制在瀏覽器安全區內 */
+    padding: 0;
+    
+    /* 確保 body 佔滿整個視口 */
+    min-height: 100vh;
+    min-height: 100dvh; /* 現代瀏覽器解決方案 */
 
-        #videoPlayer {
-            width: 100%;
-            display: block;
-            background-color: #000;
-        }
-        
-        /* --- 浮水印播放控制區域 (保持透明度) --- */
-        .controls-overlay {
-            position: absolute;
-            bottom: 10px; 
-            left: 50%;
-            transform: translateX(-50%); 
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 5px 15px;
-            background-color: rgba(0, 0, 0, 0.2); 
-            border-radius: 8px;
-            z-index: 500; 
-            max-width: 90%; 
-            transition: background-color 0.3s;
-        }
-        .controls-overlay:hover {
-            background-color: rgba(0, 0, 0, 0.4);
-        }
-        
-        .controls-overlay button {
-            background-color: rgba(68, 68, 68, 0.3); 
-            border: none;
-            color: #fff;
-            padding: 8px 10px;
-            font-size: 16px;
-            height: 40px; 
-            line-height: 20px;
-            min-width: 40px;
-            flex-grow: 0;
-            transition: background-color 0.2s;
-        }
-        .controls-overlay button:hover {
-            background-color: #007aff; 
-        }
-        #togglePlay {
-            background-color: #007aff; 
-            font-size: 18px;
-            padding: 8px 15px;
-        }
-        #togglePlay:hover {
-             background-color: #0056b3; 
-        }
-        
-        /* --- 速度選單 (浮動) --- */
-        .speed-menu {
-            position: absolute;
-            background-color: rgba(51, 51, 51, 0.9); 
-            border-radius: 4px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6);
-            padding: 5px;
-            z-index: 1000;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-        .speed-menu button {
-            background-color: rgba(68, 68, 68, 0.6); 
-            color: #fff;
-            padding: 6px 12px;
-            font-size: 14px;
-            min-width: 100px;
-            flex-grow: 1;
-            height: auto;
-        }
-        .speed-menu button.active {
-            background-color: #007aff;
-        }
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background-color: #f0f0f0;
+    user-select: none;
+}
 
+.player-container {
+    width: 100%;
+    max-width: 900px;
+    background-color: #333;
+    /* 讓容器佔據頁面剩餘空間 */
+    flex-grow: 1; 
+    display: flex; /* 確保影片和控制面板正確堆疊 */
+    flex-direction: column;
+}
 
-        /* --- 下方控制面板 (背景完全透明) --- */
-        .controls-panel {
-            padding: 10px;
-            background-color: transparent; 
-            color: #fff;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-        .controls-group {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex-wrap: wrap; 
-        }
-        /* 所有控制項的基礎樣式 */
-        button, select, input[type="number"], #fileInputLabel {
-            padding: 8px 12px;
-            font-size: 14px;
-            cursor: pointer;
-            border: none;
-            border-radius: 4px;
-            background-color: #444; 
-            color: #fff;
-            box-sizing: border-box;
-            height: 40px; 
-            line-height: 20px;
-            white-space: nowrap;
-        }
-        
-        #timeInfo { min-width: 120px; text-align: right; }
-        #frameInfo { min-width: 60px; }
-        input[type="range"] {
-            flex-grow: 3; min-width: 100px;
-            -webkit-appearance: none; height: 8px; background: #555;
-            border-radius: 5px; cursor: pointer;
-        }
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none; appearance: none; width: 15px;
-            height: 15px; border-radius: 50%; background: #fff;
-        }
-        
-        #fileInputLabel { background-color: #007aff; flex-grow: 0; }
-        #fullscreenBtn { background-color: #444; flex-grow: 0; min-width: 40px; }
-        #fpsSelect { flex-grow: 0; min-width: 70px; }
-        #customFpsInput { flex-grow: 0; width: 60px; text-align: center; background-color: #333; }
-        #fpsDisplay { flex-grow: 1; text-align: left; }
-        
-        /* 全螢幕模式 */
-        .player-container:-webkit-full-screen, .player-container:fullscreen { 
-            width: 100%; height: 100%; max-width: none; display: flex; flex-direction: column;
-        }
-        
-        .player-container:-webkit-full-screen .video-wrapper, 
-        .player-container:fullscreen .video-wrapper {
-            flex-grow: 1;
-        }
-        
-        .player-container:-webkit-full-screen .controls-panel,
-        .player-container:fullscreen .controls-panel {
-            flex-grow: 0;
-        }
-    </style>
+/* 影片容器：負責定位浮水印 */
+.video-wrapper {
+    position: relative; 
+    line-height: 0;
+    overflow: hidden; /* 確保縮放不會溢出邊界 */
+    flex-grow: 1; /* 佔據 player-container 剩餘高度 */
+    /* 允許單指平移時，觸控事件能被 video-display 捕獲 */
+    touch-action: none; 
+}
+
+/* 影片縮放和平移容器 (NEW) */
+.video-display {
+    width: 100%;
+    height: 100%;
+    /* 讓縮放和平移的中心點在影片中央 */
+    transform-origin: center center; 
+    transition: transform 0.1s ease-out; /* 平滑縮放效果 */
+}
+
+#videoPlayer {
+    width: 100%;
+    display: block;
+    background-color: #000;
+}
+
+/* --- 浮水印播放控制區域 (保持透明度) --- */
+.controls-overlay {
+    position: absolute;
+    bottom: 10px; 
+    left: 50%;
+    transform: translateX(-50%); 
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 15px;
+    background-color: rgba(0, 0, 0, 0.2); 
+    border-radius: 8px;
+    z-index: 500; 
+    max-width: 90%; 
+    transition: background-color 0.3s;
+    
+    /* 確保浮水印在瀏覽器 UI 之上 */
+    bottom: calc(10px + constant(safe-area-inset-bottom));
+    bottom: calc(10px + env(safe-area-inset-bottom));
+}
+/* ... 保持 controls-overlay 和 speed-menu 內部的樣式不變 ... */
+.controls-overlay:hover { background-color: rgba(0, 0, 0, 0.4); }
+.controls-overlay button {
+    background-color: rgba(68, 68, 68, 0.3); 
+    border: none; color: #fff; padding: 8px 10px; font-size: 16px;
+    height: 40px; line-height: 20px; min-width: 40px; flex-grow: 0;
+    transition: background-color 0.2s;
+}
+.controls-overlay button:hover { background-color: #007aff; }
+#togglePlay { background-color: #007aff; font-size: 18px; padding: 8px 15px; }
+#togglePlay:hover { background-color: #0056b3; }
+.speed-menu {
+    position: absolute; background-color: rgba(51, 51, 51, 0.9); 
+    border-radius: 4px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6);
+    padding: 5px; z-index: 1000; display: flex; flex-direction: column; gap: 4px;
+}
+.speed-menu button {
+    background-color: rgba(68, 68, 68, 0.6); color: #fff; padding: 6px 12px;
+    font-size: 14px; min-width: 100px; flex-grow: 1; height: auto;
+}
+.speed-menu button.active { background-color: #007aff; }
+
+/* --- 下方控制面板 (背景完全透明) --- */
+.controls-panel {
+    padding: 10px;
+    background-color: transparent; 
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.controls-group {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap; 
+}
+/* ... 保持所有控制項的基礎樣式不變 ... */
+button, select, input[type="number"], #fileInputLabel {
+    padding: 8px 12px; font-size: 14px; cursor: pointer; border: none;
+    border-radius: 4px; background-color: #444; color: #fff;
+    box-sizing: border-box; height: 40px; line-height: 20px; white-space: nowrap;
+}
+#timeInfo { min-width: 120px; text-align: right; }
+#frameInfo { min-width: 60px; }
+input[type="range"] {
+    flex-grow: 3; min-width: 100px; -webkit-appearance: none; height: 8px;
+    background: #555; border-radius: 5px; cursor: pointer;
+}
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none; width: 15px;
+    height: 15px; border-radius: 50%; background: #fff;
+}
+#fileInputLabel { background-color: #007aff; flex-grow: 0; }
+#fullscreenBtn { background-color: #444; flex-grow: 0; min-width: 40px; }
+#fpsSelect { flex-grow: 0; min-width: 70px; }
+#customFpsInput { flex-grow: 0; width: 60px; text-align: center; background-color: #333; }
+#fpsDisplay { flex-grow: 1; text-align: left; }
+
+/* ------------------------------------------------ */
+/* 全螢幕模式 (Full Screen) - 關鍵修正區域 */
+/* ------------------------------------------------ */
+.player-container:-webkit-full-screen, .player-container:fullscreen { 
+    width: 100%; 
+    height: 100%; /* 瀏覽器會自己計算這個 100% 的高度 */
+    max-width: none; 
+    display: flex; 
+    flex-direction: column;
+
+    /* 確保全螢幕時 control-panel 有空間且可滾動 */
+    /* 添加底部安全區域，防止被系統 UI 遮擋 */
+    padding-bottom: constant(safe-area-inset-bottom);
+    padding-bottom: env(safe-area-inset-bottom);
+}
+
+.player-container:-webkit-full-screen .video-wrapper, 
+.player-container:fullscreen .video-wrapper {
+    flex-grow: 1;
+    overflow: hidden; /* 確保影片縮放不會衝出邊界 */
+}
+
+/* 關鍵修正：讓控制面板在全螢幕模式下可以滾動 */
+.player-container:-webkit-full-screen .controls-panel,
+.player-container:fullscreen .controls-panel {
+    flex-grow: 0;
+    
+    /* 設置最大高度（可以調整，但 150px 應夠用） */
+    max-height: 150px; 
+    overflow-y: auto; /* 允許垂直滾動 */
+    -webkit-overflow-scrolling: touch; 
+    
+    /* 移除全螢幕容器已添加的安全邊距 */
+    padding-bottom: 0; 
+}
+</style>
+
 </head>
 <body>
 
