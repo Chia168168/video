@@ -1,6 +1,648 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
+<head><!DOCTYPE html>
+<html lang="zh-TW">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>iPhone 影片分析播放器 (含縮放和平移)</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f0f0f0;
+            user-select: none;
+        }
+        .player-container {
+            width: 100%;
+            max-width: 900px;
+            background-color: #333;
+        }
+        
+        /* 影片容器：負責定位浮水印 */
+        .video-wrapper {
+            position: relative; 
+            line-height: 0;
+            overflow: hidden; /* 確保縮放不會溢出邊界 */
+            /* 允許單指平移時，觸控事件能被 video-display 捕獲 */
+            touch-action: none; 
+        }
+        
+        /* 影片縮放和平移容器 (NEW) */
+        .video-display {
+            width: 100%;
+            height: 100%;
+            /* 讓縮放和平移的中心點在影片中央 */
+            transform-origin: center center; 
+            transition: transform 0.1s ease-out; /* 平滑縮放效果 */
+            /* 讓這個元素可以接收觸控，並防止瀏覽器默認行為 */
+            touch-action: none; 
+        }
+
+        #videoPlayer {
+            width: 100%;
+            display: block;
+            background-color: #000;
+        }
+        
+        /* --- 浮水印播放控制區域 (保持透明度) --- */
+        .controls-overlay {
+            position: absolute;
+            bottom: 10px; 
+            left: 50%;
+            transform: translateX(-50%); 
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 5px 15px;
+            background-color: rgba(0, 0, 0, 0.2); 
+            border-radius: 8px;
+            z-index: 500; 
+            max-width: 90%; 
+            transition: background-color 0.3s;
+        }
+        .controls-overlay:hover {
+            background-color: rgba(0, 0, 0, 0.4);
+        }
+        
+        .controls-overlay button {
+            background-color: rgba(68, 68, 68, 0.3); 
+            border: none;
+            color: #fff;
+            padding: 8px 10px;
+            font-size: 16px;
+            height: 40px; 
+            line-height: 20px;
+            min-width: 40px;
+            flex-grow: 0;
+            transition: background-color 0.2s;
+        }
+        .controls-overlay button:hover {
+            background-color: #007aff; 
+        }
+        #togglePlay {
+            background-color: #007aff; 
+            font-size: 18px;
+            padding: 8px 15px;
+        }
+        #togglePlay:hover {
+             background-color: #0056b3; 
+        }
+        
+        /* --- 速度選單 (浮動) --- */
+        .speed-menu {
+            position: absolute;
+            background-color: rgba(51, 51, 51, 0.9); 
+            border-radius: 4px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6);
+            padding: 5px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .speed-menu button {
+            background-color: rgba(68, 68, 68, 0.6); 
+            color: #fff;
+            padding: 6px 12px;
+            font-size: 14px;
+            min-width: 100px;
+            flex-grow: 1;
+            height: auto;
+        }
+        .speed-menu button.active {
+            background-color: #007aff;
+        }
+
+
+        /* --- 下方控制面板 (背景完全透明) --- */
+        .controls-panel {
+            padding: 10px;
+            background-color: transparent; 
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .controls-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap; 
+        }
+        /* 所有控制項的基礎樣式 */
+        button, select, input[type="number"], #fileInputLabel {
+            padding: 8px 12px;
+            font-size: 14px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            background-color: #444; 
+            color: #fff;
+            box-sizing: border-box;
+            height: 40px; 
+            line-height: 20px;
+            white-space: nowrap;
+        }
+        
+        #timeInfo { min-width: 120px; text-align: right; }
+        #frameInfo { min-width: 60px; }
+        input[type="range"] {
+            flex-grow: 3; min-width: 100px;
+            -webkit-appearance: none; height: 8px; background: #555;
+            border-radius: 5px; cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none; width: 15px;
+            height: 15px; border-radius: 50%; background: #fff;
+        }
+        
+        #fileInputLabel { background-color: #007aff; flex-grow: 0; }
+        #fullscreenBtn { background-color: #444; flex-grow: 0; min-width: 40px; }
+        #fpsSelect { flex-grow: 0; min-width: 70px; }
+        #customFpsInput { flex-grow: 0; width: 60px; text-align: center; background-color: #333; }
+        #fpsDisplay { flex-grow: 1; text-align: left; }
+        
+        /* 全螢幕模式 */
+        .player-container:-webkit-full-screen, .player-container:fullscreen { 
+            width: 100%; height: 100%; max-width: none; display: flex; flex-direction: column;
+        }
+        
+        .player-container:-webkit-full-screen .video-wrapper, 
+        .player-container:fullscreen .video-wrapper {
+            flex-grow: 1;
+        }
+        
+        .player-container:-webkit-full-screen .controls-panel,
+        .player-container:fullscreen .controls-panel {
+            flex-grow: 0;
+        }
+    </style>
+</head>
+<body>
+
+<div class="player-container" id="playerContainer">
+    
+    <div class="video-wrapper">
+        <div class="video-display" id="videoDisplay">
+            <video id="videoPlayer" playsinline webkit-playsinline></video>
+        </div>
+        
+        <canvas id="videoCanvas" style="display:none;"></canvas>
+        
+        <div class="controls-overlay" id="controlsOverlay">
+            <button id="stepBackward" title="後退 0.1 秒">⏮</button>
+            <button id="frameBackward" title="逐幀退後">⏴</button>
+            <button id="togglePlay">▶</button>
+            <button id="frameForward" title="逐幀前進">⏵</button>
+            <button id="stepForward" title="快進 0.1 秒">⏭</button>
+            
+            <button id="speedBtn" title="播放速度">⏱</button>
+            <button id="saveFrame" title="儲存畫面">🖼</button>
+        </div>
+        
+        <div class="speed-menu" id="speedMenu" style="display:none;">
+            <button data-rate="2.0">2x 速度</button>
+            <button data-rate="1.0" class="active">1x 速度</button>
+            <button data-rate="0.5">0.5x 速度</button>
+            <button data-rate="0.1">0.1x 速度</button>
+            <button data-rate="1fps">逐幀 (Frame)</button>
+        </div>
+    </div>
+
+
+    <div class="controls-panel">
+        
+        <div class="controls-group controls-progress">
+            <input type="range" id="progressBar" value="0" min="0" max="1000" step="1" title="影片進度">
+            <span class="status-info" id="frameInfo">F: 0</span>
+            <span class="status-info" id="timeInfo">00:00.00 / 00:00.00</span>
+        </div>
+
+        <div class="controls-group controls-setup">
+            <label for="fileInput" id="fileInputLabel">選擇影片</label>
+            <input type="file" id="fileInput" accept="video/*">
+            
+            <button id="fullscreenBtn" title="全螢幕">⛶</button>
+
+            <span class="status-info">FPS:</span>
+            <select id="fpsSelect" title="設定影片 FPS">
+                <option value="30" selected>30</option>
+                <option value="24">24</option>
+                <option value="60">60</option>
+                <option value="120">120</option>
+                <option value="240">240</option>
+                <option value="custom">自訂</option>
+            </select>
+            <input type="number" id="customFpsInput" value="30" min="1" step="1" style="display:none;" title="自訂 FPS 值">
+            
+            <span class="status-info" id="fpsDisplay">目前 FPS: 30</span>
+        </div>
+        
+    </div>
+</div>
+
+<script>
+    const video = document.getElementById('videoPlayer');
+    const fileInput = document.getElementById('fileInput');
+    const togglePlayBtn = document.getElementById('togglePlay');
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+    const saveFrameBtn = document.getElementById('saveFrame');
+    const progressBar = document.getElementById('progressBar');
+    const timeInfo = document.getElementById('timeInfo');
+    const frameInfo = document.getElementById('frameInfo');
+    const fpsSelect = document.getElementById('fpsSelect');
+    const customFpsInput = document.getElementById('customFpsInput');
+    const fpsDisplay = document.getElementById('fpsDisplay');
+    const playerContainer = document.getElementById('playerContainer');
+    const videoCanvas = document.getElementById('videoCanvas');
+    const ctx = videoCanvas.getContext('2d');
+    
+    const controlsOverlay = document.getElementById('controlsOverlay');
+    const speedBtn = document.getElementById('speedBtn');
+    const speedMenu = document.getElementById('speedMenu');
+    const speedOptions = speedMenu.querySelectorAll('button');
+    const videoWrapper = document.querySelector('.video-wrapper');
+    const videoDisplay = document.getElementById('videoDisplay');
+
+    let assumedFPS = 30; 
+    let frameDuration = 1 / assumedFPS;
+    let currentRate = '1.0'; 
+    let isDragging = false; 
+    let lastObjectURL = null; 
+    
+    // --- 縮放/平移狀態變數 ---
+    let currentScale = 1;
+    let initialDistance = 0;
+    let initialScale = 1;
+
+    // 平移變數 (NEW)
+    let translateX = 0;
+    let translateY = 0;
+    let startX = 0;
+    let startY = 0;
+    let lastTranslateX = 0;
+    let lastTranslateY = 0;
+    
+    // 啟動時清理影片源
+    video.src = ''; 
+    video.load(); 
+    timeInfo.textContent = `請選擇影片檔案`;
+    customFpsInput.style.display = 'none';
+
+    // 應用當前的縮放和平移 (使用單一 transform 屬性)
+    function applyTransform() {
+        videoDisplay.style.transform = `translate(${translateX}px, ${translateY}px) scale(${currentScale})`;
+    }
+
+    // --- 觸摸事件處理 (縮放和平移) ---
+    videoDisplay.addEventListener('touchstart', (e) => {
+        e.preventDefault(); 
+        
+        lastTranslateX = translateX;
+        lastTranslateY = translateY;
+
+        if (e.touches.length === 2) {
+            const t1 = e.touches[0];
+            const t2 = e.touches[1];
+            
+            // 縮放：計算初始距離
+            initialDistance = Math.sqrt(
+                Math.pow(t2.clientX - t1.clientX, 2) + 
+                Math.pow(t2.clientY - t1.clientY, 2)
+            );
+            initialScale = currentScale; 
+            
+            // 平移：計算雙指中心點作為平移起點
+            startX = (t1.clientX + t2.clientX) / 2;
+            startY = (t1.clientY + t2.clientY) / 2;
+
+        } else if (e.touches.length === 1) {
+             // 平移：單指觸摸作為平移起點
+             startX = e.touches[0].clientX;
+             startY = e.touches[0].clientY;
+        }
+    }, { passive: false });
+
+    videoDisplay.addEventListener('touchmove', (e) => {
+        e.preventDefault(); 
+        
+        const rect = videoDisplay.getBoundingClientRect();
+        const maxPanX = (rect.width * currentScale - rect.width) / 2;
+        const maxPanY = (rect.height * currentScale - rect.height) / 2;
+
+
+        if (e.touches.length === 2) {
+            // --- 雙指處理：縮放 AND 平移 ---
+            
+            const t1 = e.touches[0];
+            const t2 = e.touches[1];
+
+            // 1. 縮放計算
+            const currentDistance = Math.sqrt(
+                Math.pow(t2.clientX - t1.clientX, 2) + 
+                Math.pow(t2.clientY - t1.clientY, 2)
+            );
+            if (initialDistance > 0) {
+                let newScale = initialScale * (currentDistance / initialDistance);
+                currentScale = Math.min(Math.max(1, newScale), 5); // 最小縮放為 1x
+            }
+
+            // 2. 平移計算 (基於中心點移動)
+            const currentX = (t1.clientX + t2.clientX) / 2;
+            const currentY = (t1.clientY + t2.clientY) / 2;
+            
+            // 計算總移動量
+            const deltaX = currentX - startX;
+            const deltaY = currentY - startY;
+            
+            // 將總移動量加到上一個平移狀態上
+            translateX = lastTranslateX + deltaX;
+            translateY = lastTranslateY + deltaY;
+
+
+        } else if (e.touches.length === 1 && currentScale > 1) {
+            // --- 單指處理：平移 (僅當已縮放時才啟用) ---
+            
+            const deltaX = e.touches[0].clientX - startX;
+            const deltaY = e.touches[0].clientY - startY;
+
+            translateX = lastTranslateX + deltaX;
+            translateY = lastTranslateY + deltaY;
+        }
+        
+        // 限制平移範圍，防止移出畫面
+        translateX = Math.min(Math.max(translateX, -maxPanX), maxPanX);
+        translateY = Math.min(Math.max(translateY, -maxPanY), maxPanY);
+        
+        // 如果縮放為 1x，則強制歸零平移
+        if (currentScale <= 1.01) { 
+             translateX = 0;
+             translateY = 0;
+             currentScale = 1;
+        }
+
+
+        applyTransform();
+
+    }, { passive: false });
+
+    videoDisplay.addEventListener('touchend', () => {
+        // 重設距離和縮放狀態
+        initialDistance = 0;
+        initialScale = currentScale;
+        lastTranslateX = translateX;
+        lastTranslateY = translateY;
+        
+        // 確保縮放值不會是 1.01，而是準確的 1
+        if (currentScale <= 1.01) {
+            currentScale = 1;
+            translateX = 0;
+            translateY = 0;
+            applyTransform();
+        }
+    });
+    
+    // --- FPS 處理邏輯 (保持不變) ---
+    function updateFps(fpsValue) {
+        let newFps;
+        if (fpsValue === 'custom') {
+            customFpsInput.style.display = 'block';
+            newFps = parseInt(customFpsInput.value);
+        } else {
+            customFpsInput.style.display = 'none';
+            newFps = parseInt(fpsValue);
+        }
+
+        if (newFps > 0) {
+            assumedFPS = newFps;
+            frameDuration = 1 / assumedFPS;
+            fpsDisplay.textContent = `目前 FPS: ${assumedFPS}`;
+        } else if (fpsValue !== 'custom') {
+            fpsSelect.value = assumedFPS.toString();
+        }
+        updateTimeInfo();
+    }
+    fpsSelect.addEventListener('change', (e) => updateFps(e.target.value));
+    customFpsInput.addEventListener('change', (e) => {
+        if (fpsSelect.value === 'custom') updateFps(e.target.value);
+    });
+    updateFps(fpsSelect.value); 
+
+    // --- 速度選單邏輯 (保持不變) ---
+    speedBtn.addEventListener('click', (e) => {
+        const rect = speedBtn.getBoundingClientRect();
+        const videoWrapperRect = videoWrapper.getBoundingClientRect();
+        const absoluteRight = videoWrapperRect.right - rect.right;
+        speedMenu.style.bottom = `${controlsOverlay.offsetHeight + 10}px`; 
+        speedMenu.style.right = `${absoluteRight - (rect.width / 2) + 20}px`; 
+        speedMenu.style.display = speedMenu.style.display === 'flex' ? 'none' : 'flex';
+        e.stopPropagation(); 
+    });
+
+    speedOptions.forEach(button => {
+        button.addEventListener('click', () => {
+            const rate = button.getAttribute('data-rate');
+            currentRate = rate;
+            
+            if (!video.src) return;
+            
+            if (!video.paused) {
+                if (rate === '1fps') {
+                    video.playbackRate = frameDuration;
+                } else {
+                    video.playbackRate = parseFloat(rate);
+                }
+            }
+
+            speedOptions.forEach(b => b.classList.remove('active'));
+            button.classList.add('active');
+            speedMenu.style.display = 'none';
+        });
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!speedMenu.contains(e.target) && e.target !== speedBtn) {
+            speedMenu.style.display = 'none';
+        }
+    });
+
+
+    // --- 影片控制邏輯 (保持穩定性) ---
+    
+    // 1. 載入影片檔案 
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            if (lastObjectURL) {
+                URL.revokeObjectURL(lastObjectURL);
+            }
+            
+            const fileURL = URL.createObjectURL(file);
+            lastObjectURL = fileURL; 
+
+            video.src = fileURL;
+            video.load(); 
+            
+            video.removeAttribute('controls');
+            togglePlayBtn.textContent = '▶';
+            
+            currentRate = '1.0'; 
+            speedOptions.forEach(b => b.classList.remove('active'));
+            const defaultSpeedBtn = speedMenu.querySelector('[data-rate="1.0"]');
+            if (defaultSpeedBtn) defaultSpeedBtn.classList.add('active');
+
+            video.currentTime = 0; 
+            updateTimeInfo(0, video.duration || 0);
+
+            // 重設縮放和平移狀態 (NEW)
+            currentScale = 1;
+            translateX = 0;
+            translateY = 0;
+            lastTranslateX = 0;
+            lastTranslateY = 0;
+            applyTransform();
+        }
+    });
+
+    // 2. 元數據載入完成後
+    video.addEventListener('loadedmetadata', () => {
+        progressBar.max = Math.floor(video.duration * 1000);
+        progressBar.value = 0;
+        updateTimeInfo();
+        video.pause();
+        video.currentTime = 0;
+    });
+
+    // 3. 播放/暫停按鈕
+    togglePlayBtn.addEventListener('click', () => {
+        if (!video.src) {
+            alert("請先點擊「選擇影片」載入檔案。");
+            return;
+        }
+
+        if (video.paused || video.ended) {
+            
+            if (currentRate === '1fps') {
+                video.playbackRate = frameDuration;
+            } else {
+                video.playbackRate = parseFloat(currentRate);
+            }
+            
+            const playPromise = video.play();
+            
+            if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                    console.error("Video Playback blocked/failed:", error);
+                    alert("自動播放被阻止。請手動操作（拖曳進度條或逐幀）一次後，再嘗試點擊播放。");
+                    video.pause();
+                });
+            }
+        } else {
+            video.pause();
+        }
+    });
+    
+    video.addEventListener('play', () => { togglePlayBtn.textContent = '⏸'; });
+    video.addEventListener('pause', () => { togglePlayBtn.textContent = '▶'; });
+    
+    // 4. 時間/幀數資訊更新
+    video.addEventListener('timeupdate', () => {
+        if (!video.duration) return;
+        if (!isDragging) {
+            progressBar.value = Math.floor(video.currentTime * 1000);
+        }
+        updateTimeInfo();
+    });
+    
+    function updateTimeInfo(currentTime = video.currentTime, duration = video.duration) {
+        if (!duration || isNaN(duration)) {
+             timeInfo.textContent = `請選擇影片檔案`;
+             frameInfo.textContent = `F: 0`;
+             return;
+        }
+        
+        const currentFrame = Math.round(currentTime * assumedFPS); 
+
+        const formatTime = (seconds) => {
+            const minutes = Math.floor(seconds / 60).toString().padStart(2, '0');
+            const secs = (seconds % 60).toFixed(2).padStart(5, '0'); 
+            return `${minutes}:${secs}`;
+        };
+        
+        timeInfo.textContent = `${formatTime(currentTime)} / ${formatTime(duration)}`;
+        frameInfo.textContent = `F: ${currentFrame}`;
+    }
+
+    // 5. 前進/後退（秒數）和 逐幀
+    document.getElementById('stepBackward').addEventListener('click', () => {
+        if (!video.src) return; video.currentTime = Math.max(0, video.currentTime - 0.1); video.pause();
+    });
+    document.getElementById('stepForward').addEventListener('click', () => {
+        if (!video.src) return; video.currentTime = Math.min(video.duration, video.currentTime + 0.1); video.pause();
+    });
+    document.getElementById('frameBackward').addEventListener('click', () => {
+        if (!video.src || isNaN(frameDuration)) return; video.pause();
+        let currentFrame = Math.round(video.currentTime / frameDuration);
+        let targetFrame = Math.max(0, currentFrame - 1);
+        video.currentTime = targetFrame * frameDuration;
+    });
+    document.getElementById('frameForward').addEventListener('click', () => {
+        if (!video.src || isNaN(frameDuration)) return; video.pause();
+        let currentFrame = Math.round(video.currentTime / frameDuration);
+        let targetFrame = currentFrame + 1;
+        video.currentTime = Math.min(video.duration, targetFrame * frameDuration);
+    });
+
+    // 6. 進度條拖曳控制
+    progressBar.addEventListener('mousedown', () => isDragging = true);
+    progressBar.addEventListener('mouseup', () => isDragging = false);
+    progressBar.addEventListener('input', () => {
+        const seekTime = progressBar.value / 1000;
+        updateTimeInfo(seekTime, video.duration);
+    });
+    progressBar.addEventListener('change', () => {
+        const seekTime = progressBar.value / 1000;
+        video.currentTime = seekTime;
+        isDragging = false;
+        if (!video.paused) video.pause();
+    });
+
+    // 7. 儲存畫面（透過 Canvas）
+    saveFrameBtn.addEventListener('click', () => {
+        if (!video.src) return;
+        videoCanvas.width = video.videoWidth;
+        videoCanvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0, videoCanvas.width, videoCanvas.height);
+        const imageURL = videoCanvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.href = imageURL;
+        link.download = `frame_${Math.floor(video.currentTime * assumedFPS)}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    });
+
+    // 8. 全螢幕
+    fullscreenBtn.addEventListener('click', () => {
+        if (!video.src) return;
+        if (playerContainer.requestFullscreen) {
+            playerContainer.requestFullscreen();
+        } else if (playerContainer.webkitRequestFullscreen) {
+            playerContainer.webkitRequestFullscreen();
+        } else if (video.webkitEnterFullscreen) {
+             video.webkitEnterFullscreen();
+        }
+    });
+
+</script>
+</body>
+</html>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>iPhone 影片分析播放器 (含縮放)</title>
