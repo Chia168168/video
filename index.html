@@ -29,7 +29,7 @@ body {
 .player-container {
     width: 100%;
     max-width: 900px;
-    background-color: #333;
+    background-color: #333; /* 容器背景保持深色 */
     /* 確保容器佔滿所有可用高度 */
     height: 100%;
     /* 啟用 Flexbox 以堆疊影片和控制面板 */
@@ -67,9 +67,10 @@ body {
 }
 
 /* --- 速度選單 (浮動) --- */
+/* 保持半透明背景，因為它是浮動的選單 */
 .speed-menu {
     position: absolute;
-    background-color: rgba(51, 51, 51, 0.9); 
+    background-color: rgba(51, 51, 51, 0.8); /* 略微透明的背景 */
     border-radius: 4px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6);
     padding: 5px;
@@ -79,7 +80,8 @@ body {
     gap: 4px;
 }
 .speed-menu button {
-    background-color: rgba(68, 68, 68, 0.6); 
+    background-color: rgba(68, 68, 68, 0.5); /* 按鈕背景半透明 */
+    border: none;
     color: #fff;
     padding: 6px 12px;
     font-size: 14px;
@@ -88,20 +90,20 @@ body {
     height: auto;
 }
 .speed-menu button.active {
-    background-color: #007aff;
+    background-color: #007aff; /* 激活狀態保持藍色 */
 }
 
 /* ------------------------------------------------ */
-/* 下方控制面板 (包含所有按鈕) */
+/* 下方控制面板 (實現完全透明) */
 /* ------------------------------------------------ */
 .controls-panel {
     padding: 10px;
-    background-color: #333; /* 為控制面板添加背景色 */
+    background-color: transparent; /* 關鍵：完全透明 */
     color: #fff;
     display: flex;
     flex-direction: column;
     gap: 10px;
-    flex-shrink: 0; /* 確保它不會被壓縮 */
+    flex-shrink: 0; 
 }
 
 /* 控制項群組 */
@@ -109,44 +111,58 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
-    flex-wrap: wrap; /* 允許換行 */
+    flex-wrap: wrap;
 }
-/* 所有控制項的基礎樣式 */
-button, select, input[type="number"], #fileInputLabel { /* 重新加入 #fileInputLabel */
+/* 所有控制項的基礎樣式 (現在全部使用半透明背景) */
+button, select, input[type="number"] { 
     padding: 8px 12px;
     font-size: 14px;
     cursor: pointer;
     border: none;
     border-radius: 4px;
-    background-color: #444; 
+    background-color: rgba(68, 68, 68, 0.5); /* 關鍵：半透明背景 */
     color: #fff;
     box-sizing: border-box;
     height: 40px; 
     line-height: 20px;
     white-space: nowrap;
+    transition: background-color 0.2s;
 }
+/* hover 效果也改為半透明深色 */
+button:hover, #fileInputLabel:hover {
+    background-color: rgba(68, 68, 68, 0.7);
+}
+
 /* 專門為新的播放控制按鈕設計樣式 */
 .controls-group.controls-playback button {
-    background-color: rgba(68, 68, 68, 0.6);
+    background-color: rgba(68, 68, 68, 0.5); 
     min-width: 40px;
 }
 #togglePlay {
-    background-color: #007aff; 
+    background-color: rgba(0, 122, 255, 0.8); /* 播放按鈕略微保持藍色，但半透明 */
     font-size: 18px;
     padding: 8px 15px;
     min-width: 50px;
 }
 #togglePlay:hover {
-     background-color: #0056b3; 
+     background-color: rgba(0, 86, 179, 0.9); 
 }
-/* 資訊顯示 */
+/* 資訊顯示 (使用完全透明背景) */
+.status-info { 
+    background-color: transparent; 
+    padding: 8px 0; /* 調整 padding 使其對齊 */
+    line-height: 20px;
+    font-size: 14px;
+    color: #fff;
+}
 #timeInfo { min-width: 120px; text-align: right; }
 #frameInfo { min-width: 60px; }
 
 /* 進度條 */
 input[type="range"] {
     flex-grow: 3; min-width: 100px;
-    -webkit-appearance: none; height: 8px; background: #555;
+    -webkit-appearance: none; height: 8px; 
+    background: rgba(85, 85, 85, 0.7); /* 關鍵：半透明深色背景 */
     border-radius: 5px; cursor: pointer;
 }
 input[type="range"]::-webkit-slider-thumb {
@@ -155,17 +171,30 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 /* FPS 選單 */
-#fpsSelect { flex-grow: 0; min-width: 70px; }
-#customFpsInput { flex-grow: 0; width: 60px; text-align: center; background-color: #333; }
+#fpsSelect { 
+    flex-grow: 0; 
+    min-width: 70px;
+    background-color: rgba(68, 68, 68, 0.5); /* 關鍵：半透明背景 */
+}
+#customFpsInput { 
+    flex-grow: 0; 
+    width: 60px; 
+    text-align: center; 
+    background-color: rgba(51, 51, 51, 0.7); /* 關鍵：半透明深色背景 */
+}
 
-/* 檔案選擇按鈕樣式 (重新加入，並設定藍色背景) */
+/* 檔案選擇按鈕樣式 */
 #fileInputLabel { 
-    background-color: #007aff; 
+    background-color: rgba(0, 122, 255, 0.8); /* 關鍵：藍色半透明背景 */
     flex-grow: 0; 
     min-width: 80px;
     text-align: center;
     cursor: pointer;
 }
+#fileInputLabel:hover {
+    background-color: rgba(0, 86, 179, 0.9);
+}
+
 /* 隱藏真正的 file input */
 #fileInput {
     display: none; 
@@ -238,7 +267,7 @@ input[type="range"]::-webkit-slider-thumb {
 
 <script>
     const video = document.getElementById('videoPlayer');
-    const fileInput = document.getElementById('fileInput'); // 恢復
+    const fileInput = document.getElementById('fileInput'); 
     const togglePlayBtn = document.getElementById('togglePlay');
     const saveFrameBtn = document.getElementById('saveFrame');
     const progressBar = document.getElementById('progressBar');
@@ -261,7 +290,7 @@ input[type="range"]::-webkit-slider-thumb {
     let frameDuration = 1 / assumedFPS;
     let currentRate = '1.0'; 
     let isDragging = false; 
-    let lastObjectURL = null; // 恢復用於釋放記憶體的變數
+    let lastObjectURL = null; 
     
     // --- 縮放/平移狀態變數 (保持不變) ---
     let currentScale = 1;
@@ -453,7 +482,7 @@ input[type="range"]::-webkit-slider-thumb {
 
     // --- 影片控制邏輯 ---
     
-    // 1. 載入影片檔案 (恢復)
+    // 1. 載入影片檔案
     fileInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
@@ -557,7 +586,7 @@ input[type="range"]::-webkit-slider-thumb {
         frameInfo.textContent = `F: ${currentFrame}`;
     }
 
-    // 5. 前進/後退（秒數）和 逐幀 (保持不變)
+    // 5. 前進/後退（秒數）和 逐幀
     document.getElementById('stepBackward').addEventListener('click', () => {
         if (!video.src) return; video.currentTime = Math.max(0, video.currentTime - 0.1); video.pause();
     });
@@ -577,7 +606,7 @@ input[type="range"]::-webkit-slider-thumb {
         video.currentTime = Math.min(video.duration, targetFrame * frameDuration);
     });
 
-    // 6. 進度條拖曳控制 (保持不變)
+    // 6. 進度條拖曳控制
     progressBar.addEventListener('mousedown', () => isDragging = true);
     progressBar.addEventListener('mouseup', () => isDragging = false);
     progressBar.addEventListener('input', () => {
@@ -591,7 +620,7 @@ input[type="range"]::-webkit-slider-thumb {
         if (!video.paused) video.pause();
     });
 
-    // 7. 儲存畫面（透過 Canvas） (保持不變)
+    // 7. 儲存畫面（透過 Canvas）
     saveFrameBtn.addEventListener('click', () => {
         if (!video.src) return;
         videoCanvas.width = video.videoWidth;
