@@ -8,51 +8,51 @@
 /* ------------------------------------------------ */
 /* 核心安全區域設定 - 確保 iOS PWA 正確顯示 */
 /* ------------------------------------------------ */
-/* 設定 body 的 viewport-fit=cover */
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     margin: 0;
-    /* 使用 iOS 變量將內容限制在瀏覽器安全區內 */
     padding: 0;
     
-    /* 確保 body 佔滿整個視口 */
-    min-height: 100vh;
-    min-height: 100dvh; /* 現代瀏覽器解決方案 */
-
     display: flex;
     flex-direction: column;
     align-items: center;
     background-color: #f0f0f0;
     user-select: none;
+    
+    /* 讓整個 body 始終能夠滾動 (關鍵修正) */
+    min-height: 100vh; 
+    
+    /* 讓內容避開底部的系統工具欄/Home Bar (關鍵修正) */
+    padding-bottom: constant(safe-area-inset-bottom);
+    padding-bottom: env(safe-area-inset-bottom);
 }
 
 .player-container {
     width: 100%;
     max-width: 900px;
     background-color: #333;
-    /* 讓容器佔據頁面剩餘空間 */
+    /* 確保 player-container 佔據整個可用空間並啟用滾動 */
+    min-height: 100vh;
     flex-grow: 1; 
-    display: flex; /* 確保影片和控制面板正確堆疊 */
+    display: flex; 
     flex-direction: column;
 }
-
-/* 影片容器：負責定位浮水印 */
+/* ------------------------------------------------ */
+/* 播放器佈局 & 內置樣式 (與您上次提供的內容一致) */
+/* ------------------------------------------------ */
 .video-wrapper {
     position: relative; 
     line-height: 0;
-    overflow: hidden; /* 確保縮放不會溢出邊界 */
+    overflow: hidden; 
     flex-grow: 1; /* 佔據 player-container 剩餘高度 */
-    /* 允許單指平移時，觸控事件能被 video-display 捕獲 */
     touch-action: none; 
 }
 
-/* 影片縮放和平移容器 (NEW) */
 .video-display {
     width: 100%;
     height: 100%;
-    /* 讓縮放和平移的中心點在影片中央 */
     transform-origin: center center; 
-    transition: transform 0.1s ease-out; /* 平滑縮放效果 */
+    transition: transform 0.1s ease-out; 
 }
 
 #videoPlayer {
@@ -61,7 +61,7 @@ body {
     background-color: #000;
 }
 
-/* --- 浮水印播放控制區域 (保持透明度) --- */
+/* --- 浮水印播放控制區域 --- */
 .controls-overlay {
     position: absolute;
     bottom: 10px; 
@@ -77,11 +77,8 @@ body {
     max-width: 90%; 
     transition: background-color 0.3s;
     
-    /* 確保浮水印在瀏覽器 UI 之上 */
-    bottom: calc(10px + constant(safe-area-inset-bottom));
-    bottom: calc(10px + env(safe-area-inset-bottom));
+    /* 注意：這裡不再需要安全區域邊距，因為 body 已經處理了 */
 }
-/* ... 保持 controls-overlay 和 speed-menu 內部的樣式不變 ... */
 .controls-overlay:hover { background-color: rgba(0, 0, 0, 0.4); }
 .controls-overlay button {
     background-color: rgba(68, 68, 68, 0.3); 
@@ -92,6 +89,8 @@ body {
 .controls-overlay button:hover { background-color: #007aff; }
 #togglePlay { background-color: #007aff; font-size: 18px; padding: 8px 15px; }
 #togglePlay:hover { background-color: #0056b3; }
+
+/* --- 速度選單 (浮動) --- */
 .speed-menu {
     position: absolute; background-color: rgba(51, 51, 51, 0.9); 
     border-radius: 4px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6);
@@ -111,11 +110,10 @@ body {
     display: flex;
     flex-direction: column;
     gap: 10px;
+    /* 這裡不需要 max-height 或 overflow: auto, 除非在 full screen */
 }
-.controls-group {
-    display: flex; align-items: center; gap: 8px; flex-wrap: wrap; 
-}
-/* ... 保持所有控制項的基礎樣式不變 ... */
+/* ... 保持 controls-group, button, input 等樣式不變 ... */
+.controls-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 button, select, input[type="number"], #fileInputLabel {
     padding: 8px 12px; font-size: 14px; cursor: pointer; border: none;
     border-radius: 4px; background-color: #444; color: #fff;
@@ -138,41 +136,35 @@ input[type="range"]::-webkit-slider-thumb {
 #fpsDisplay { flex-grow: 1; text-align: left; }
 
 /* ------------------------------------------------ */
-/* 全螢幕模式 (Full Screen) - 關鍵修正區域 */
+/* 全螢幕模式 (Full Screen) - 修正滾動和邊距 */
 /* ------------------------------------------------ */
 .player-container:-webkit-full-screen, .player-container:fullscreen { 
     width: 100%; 
-    height: 100%; /* 瀏覽器會自己計算這個 100% 的高度 */
+    height: 100%; 
     max-width: none; 
     display: flex; 
     flex-direction: column;
-
-    /* 確保全螢幕時 control-panel 有空間且可滾動 */
-    /* 添加底部安全區域，防止被系統 UI 遮擋 */
-    padding-bottom: constant(safe-area-inset-bottom);
-    padding-bottom: env(safe-area-inset-bottom);
+    /* 移除全螢幕容器的安全邊距，讓它佔滿螢幕 */
+    padding-bottom: 0 !important; 
 }
 
 .player-container:-webkit-full-screen .video-wrapper, 
 .player-container:fullscreen .video-wrapper {
     flex-grow: 1;
-    overflow: hidden; /* 確保影片縮放不會衝出邊界 */
+    overflow: hidden; 
 }
 
-/* 關鍵修正：讓控制面板在全螢幕模式下可以滾動 */
+/* 確保全螢幕模式下的控制面板可以滾動 */
 .player-container:-webkit-full-screen .controls-panel,
 .player-container:fullscreen .controls-panel {
     flex-grow: 0;
-    
-    /* 設置最大高度（可以調整，但 150px 應夠用） */
+    /* 為了在橫向模式下能看到所有按鈕，強制啟用滾動 */
     max-height: 150px; 
-    overflow-y: auto; /* 允許垂直滾動 */
+    overflow-y: auto; 
     -webkit-overflow-scrolling: touch; 
-    
-    /* 移除全螢幕容器已添加的安全邊距 */
-    padding-bottom: 0; 
 }
 </style>
+
 
 </head>
 <body>
