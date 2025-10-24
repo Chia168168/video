@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>iPhone 影片分析播放器 (無全螢幕)</title>
+    <title>iPhone 影片分析播放器</title>
     <style>
 /* ------------------------------------------------ */
 /* 核心樣式：確保內容始終在瀏覽器安全區內 */
@@ -30,7 +30,7 @@ body {
     width: 100%;
     max-width: 900px;
     background-color: #333;
-    /* 確保容器佔滿所有可用高度，減去控制面板的高度 (假設 160px) */
+    /* 確保容器佔滿所有可用高度 */
     height: 100%;
     /* 啟用 Flexbox 以堆疊影片和控制面板 */
     display: flex; 
@@ -43,7 +43,6 @@ body {
     line-height: 0;
     overflow: hidden; 
     flex-grow: 1; 
-    /* 允許單指平移時，觸控事件能被 video-display 捕獲 */
     touch-action: none; 
 }
 
@@ -53,7 +52,6 @@ body {
     height: 100%;
     transform-origin: center center; 
     transition: transform 0.1s ease-out; 
-    /* 讓這個元素可以接收觸控，並防止瀏覽器默認行為 */
     touch-action: none; 
 }
 
@@ -63,16 +61,14 @@ body {
     background-color: #000;
 }
 
-/* ------------------------------------------------ */
-/* 舊浮水印控制區域 (現在是空的，但保留 ID 以防 JS 報錯) */
+/* 舊浮水印控制區域 (現在是隱藏的) */
 .controls-overlay {
-    display: none; /* 隱藏舊的浮水印區域 */
+    display: none; 
 }
 
 /* --- 速度選單 (浮動) --- */
 .speed-menu {
     position: absolute;
-    /* 速度選單的定位將在 JS 中動態計算，讓它浮動在控制面板之上 */
     background-color: rgba(51, 51, 51, 0.9); 
     border-radius: 4px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6);
@@ -116,7 +112,7 @@ body {
     flex-wrap: wrap; /* 允許換行 */
 }
 /* 所有控制項的基礎樣式 */
-button, select, input[type="number"], #fileInputLabel {
+button, select, input[type="number"], #fileInputLabel { /* 重新加入 #fileInputLabel */
     padding: 8px 12px;
     font-size: 14px;
     cursor: pointer;
@@ -157,12 +153,23 @@ input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none; appearance: none; width: 15px;
     height: 15px; border-radius: 50%; background: #fff;
 }
-/* 檔案選擇和 FPS 選單 */
-#fileInputLabel { background-color: #007aff; flex-grow: 0; }
+
+/* FPS 選單 */
 #fpsSelect { flex-grow: 0; min-width: 70px; }
 #customFpsInput { flex-grow: 0; width: 60px; text-align: center; background-color: #333; }
 
-/* 刪除所有全螢幕模式相關的 CSS 規則 */
+/* 檔案選擇按鈕樣式 (重新加入，並設定藍色背景) */
+#fileInputLabel { 
+    background-color: #007aff; 
+    flex-grow: 0; 
+    min-width: 80px;
+    text-align: center;
+    cursor: pointer;
+}
+/* 隱藏真正的 file input */
+#fileInput {
+    display: none; 
+}
 
     </style>
 </head>
@@ -177,8 +184,7 @@ input[type="range"]::-webkit-slider-thumb {
         
         <canvas id="videoCanvas" style="display:none;"></canvas>
         
-        <div class="controls-overlay" id="controlsOverlay">
-            </div>
+        <div class="controls-overlay" id="controlsOverlay"></div>
         
         <div class="speed-menu" id="speedMenu" style="display:none;">
             <button data-rate="2.0">2x 速度</button>
@@ -210,6 +216,7 @@ input[type="range"]::-webkit-slider-thumb {
         </div>
 
         <div class="controls-group controls-setup">
+            
             <label for="fileInput" id="fileInputLabel">選擇影片</label>
             <input type="file" id="fileInput" accept="video/*">
             
@@ -224,47 +231,44 @@ input[type="range"]::-webkit-slider-thumb {
             </select>
             <input type="number" id="customFpsInput" value="30" min="1" step="1" style="display:none;" title="自訂 FPS 值">
             
-            </div>
+        </div>
         
     </div>
 </div>
 
 <script>
     const video = document.getElementById('videoPlayer');
-    const fileInput = document.getElementById('fileInput');
+    const fileInput = document.getElementById('fileInput'); // 恢復
     const togglePlayBtn = document.getElementById('togglePlay');
-    // const fullscreenBtn = document.getElementById('fullscreenBtn'); // 移除
     const saveFrameBtn = document.getElementById('saveFrame');
     const progressBar = document.getElementById('progressBar');
     const timeInfo = document.getElementById('timeInfo');
     const frameInfo = document.getElementById('frameInfo');
     const fpsSelect = document.getElementById('fpsSelect');
     const customFpsInput = document.getElementById('customFpsInput');
-    // const fpsDisplay = document.getElementById('fpsDisplay'); // 移除
     const playerContainer = document.getElementById('playerContainer');
     const videoCanvas = document.getElementById('videoCanvas');
     const ctx = videoCanvas.getContext('2d');
     
-    // const controlsOverlay = document.getElementById('controlsOverlay'); // 移除
     const speedBtn = document.getElementById('speedBtn');
     const speedMenu = document.getElementById('speedMenu');
     const speedOptions = speedMenu.querySelectorAll('button');
     const videoWrapper = document.querySelector('.video-wrapper');
     const videoDisplay = document.getElementById('videoDisplay'); 
-    const controlsPanel = document.querySelector('.controls-panel'); // 新增
+    const controlsPanel = document.querySelector('.controls-panel'); 
 
     let assumedFPS = 30; 
     let frameDuration = 1 / assumedFPS;
     let currentRate = '1.0'; 
     let isDragging = false; 
-    let lastObjectURL = null; 
+    let lastObjectURL = null; // 恢復用於釋放記憶體的變數
     
     // --- 縮放/平移狀態變數 (保持不變) ---
     let currentScale = 1;
     let initialDistance = 0;
     let initialScale = 1;
 
-    // 平移變數 (保持不變)
+    // 平移變數 
     let translateX = 0;
     let translateY = 0;
     let startX = 0;
@@ -275,7 +279,7 @@ input[type="range"]::-webkit-slider-thumb {
     // 啟動時清理影片源
     video.src = ''; 
     video.load(); 
-    timeInfo.textContent = `請選擇影片檔案`;
+    timeInfo.textContent = `00:00.00 / 00:00.00`;
 
     // 縮放輸入框初始狀態
     customFpsInput.style.display = 'none';
@@ -285,7 +289,7 @@ input[type="range"]::-webkit-slider-thumb {
         videoDisplay.style.transform = `translate(${translateX}px, ${translateY}px) scale(${currentScale})`;
     }
 
-    // --- 觸摸事件處理 (縮放和平移) ---
+    // --- 觸摸事件處理 (縮放和平移) (保持不變) ---
     videoDisplay.addEventListener('touchstart', (e) => {
         e.preventDefault(); 
         
@@ -324,7 +328,6 @@ input[type="range"]::-webkit-slider-thumb {
             const t1 = e.touches[0];
             const t2 = e.touches[1];
 
-            // 1. 縮放計算
             const currentDistance = Math.sqrt(
                 Math.pow(t2.clientX - t1.clientX, 2) + 
                 Math.pow(t2.clientY - t1.clientY, 2)
@@ -334,7 +337,6 @@ input[type="range"]::-webkit-slider-thumb {
                 currentScale = Math.min(Math.max(1, newScale), 5); 
             }
 
-            // 2. 平移計算
             const currentX = (t1.clientX + t2.clientX) / 2;
             const currentY = (t1.clientY + t2.clientY) / 2;
             
@@ -354,11 +356,9 @@ input[type="range"]::-webkit-slider-thumb {
             translateY = lastTranslateY + deltaY;
         }
         
-        // 限制平移範圍
         translateX = Math.min(Math.max(translateX, -maxPanX), maxPanX);
         translateY = Math.min(Math.max(translateY, -maxPanY), maxPanY);
         
-        // 縮放歸零時，平移也歸零
         if (currentScale <= 1.01) { 
              translateX = 0;
              translateY = 0;
@@ -383,7 +383,7 @@ input[type="range"]::-webkit-slider-thumb {
         }
     });
     
-    // --- FPS 處理邏輯 (修改：移除 fpsDisplay) ---
+    // --- FPS 處理邏輯 (保持不變) ---
     function updateFps(fpsValue) {
         let newFps;
         if (fpsValue === 'custom') {
@@ -397,7 +397,6 @@ input[type="range"]::-webkit-slider-thumb {
         if (newFps > 0) {
             assumedFPS = newFps;
             frameDuration = 1 / assumedFPS;
-            // 移除 fpsDisplay.textContent = `目前 FPS: ${assumedFPS}`;
         } else if (fpsValue !== 'custom') {
             fpsSelect.value = assumedFPS.toString();
         }
@@ -409,15 +408,12 @@ input[type="range"]::-webkit-slider-thumb {
     });
     updateFps(fpsSelect.value); 
 
-    // --- 速度選單邏輯 (修改：重新計算定位) ---
+    // --- 速度選單邏輯 (保持不變) ---
     speedBtn.addEventListener('click', (e) => {
         const rect = speedBtn.getBoundingClientRect();
-        const controlsPanelRect = controlsPanel.getBoundingClientRect(); // 使用 controlsPanel 作為參考
+        const controlsPanelRect = controlsPanel.getBoundingClientRect(); 
         
-        // 將菜單定位在 controlsPanel 的頂部邊界，並對齊 speedBtn 的右側
         const bottomOffset = controlsPanelRect.height - (rect.top - controlsPanelRect.top) + 10;
-        
-        // 讓菜單右邊緣對齊按鈕右邊緣
         const rightOffset = controlsPanelRect.right - rect.right; 
         
         speedMenu.style.bottom = `${bottomOffset}px`; 
@@ -455,9 +451,9 @@ input[type="range"]::-webkit-slider-thumb {
     });
 
 
-    // --- 影片控制邏輯 (保持穩定性) ---
+    // --- 影片控制邏輯 ---
     
-    // 1. 載入影片檔案 
+    // 1. 載入影片檔案 (恢復)
     fileInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
@@ -543,8 +539,8 @@ input[type="range"]::-webkit-slider-thumb {
     });
     
     function updateTimeInfo(currentTime = video.currentTime, duration = video.duration) {
-        if (!duration || isNaN(duration)) {
-             timeInfo.textContent = `請選擇影片檔案`;
+        if (!duration || isNaN(duration) || !video.src) {
+             timeInfo.textContent = `00:00.00 / 00:00.00`;
              frameInfo.textContent = `F: 0`;
              return;
         }
@@ -561,7 +557,7 @@ input[type="range"]::-webkit-slider-thumb {
         frameInfo.textContent = `F: ${currentFrame}`;
     }
 
-    // 5. 前進/後退（秒數）和 逐幀
+    // 5. 前進/後退（秒數）和 逐幀 (保持不變)
     document.getElementById('stepBackward').addEventListener('click', () => {
         if (!video.src) return; video.currentTime = Math.max(0, video.currentTime - 0.1); video.pause();
     });
@@ -581,7 +577,7 @@ input[type="range"]::-webkit-slider-thumb {
         video.currentTime = Math.min(video.duration, targetFrame * frameDuration);
     });
 
-    // 6. 進度條拖曳控制
+    // 6. 進度條拖曳控制 (保持不變)
     progressBar.addEventListener('mousedown', () => isDragging = true);
     progressBar.addEventListener('mouseup', () => isDragging = false);
     progressBar.addEventListener('input', () => {
@@ -595,7 +591,7 @@ input[type="range"]::-webkit-slider-thumb {
         if (!video.paused) video.pause();
     });
 
-    // 7. 儲存畫面（透過 Canvas）
+    // 7. 儲存畫面（透過 Canvas） (保持不變)
     saveFrameBtn.addEventListener('click', () => {
         if (!video.src) return;
         videoCanvas.width = video.videoWidth;
@@ -610,8 +606,6 @@ input[type="range"]::-webkit-slider-thumb {
         document.body.removeChild(link);
     });
 
-    // 8. 移除全螢幕按鈕邏輯
-    // fullscreenBtn.addEventListener('click', ...); // 移除
 </script>
 </body>
 </html>
