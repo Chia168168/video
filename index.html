@@ -2,154 +2,179 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>iPhone 影片分析播放器 (含縮放和平移)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>iPhone 影片分析播放器 (含縮放)</title>
     <style>
-/* ------------------------------------------------ */
-/* 核心安全區域設定 - 確保 iOS PWA 正確顯示 */
-/* ------------------------------------------------ */
-:root {
-    /* 確保安全區域變量可用 */
-    --vh: 100vh;
-}
-body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    margin: 0;
-    /* 將 Padding 設置在 body 上，用於處理底部的 Home 指示條和瀏覽器工具列 */
-    padding: 0 0 constant(safe-area-inset-bottom) 0;
-    padding: 0 0 env(safe-area-inset-bottom) 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    background-color: #f0f0f0;
-    user-select: none;
-    /* 確保 body 高度在 PWA 模式下正確佔滿 */
-    height: 100vh; 
-}
-/* ------------------------------------------------ */
-/* 播放器佈局 */
-/* ------------------------------------------------ */
-.player-container {
-    width: 100%;
-    max-width: 900px;
-    background-color: #333;
-    /* 讓容器在高度上能夠佔滿 body 的剩餘空間 (非全螢幕時) */
-    flex-grow: 1; 
-}
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f0f0f0;
+            user-select: none;
+        }
+        .player-container {
+            width: 100%;
+            max-width: 900px;
+            background-color: #333;
+        }
+        
+        /* 影片容器：負責定位浮水印 */
+        .video-wrapper {
+            position: relative; 
+            line-height: 0;
+            overflow: hidden; /* 確保縮放不會溢出邊界 */
+        }
+        
+        /* 影片縮放和平移容器 (NEW) */
+        .video-display {
+            width: 100%;
+            height: 100%;
+            /* 讓縮放和平移的中心點在影片中央 */
+            transform-origin: center center; 
+            transition: transform 0.1s ease-out; /* 平滑縮放效果 */
+        }
 
-/* 影片容器：負責定位浮水印 */
-.video-wrapper {
-    position: relative; 
-    line-height: 0;
-    overflow: hidden; 
-    touch-action: none; 
-}
+        #videoPlayer {
+            width: 100%;
+            display: block;
+            background-color: #000;
+        }
+        
+        /* --- 浮水印播放控制區域 (保持透明度) --- */
+        .controls-overlay {
+            position: absolute;
+            bottom: 10px; 
+            left: 50%;
+            transform: translateX(-50%); 
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 5px 15px;
+            background-color: rgba(0, 0, 0, 0.2); 
+            border-radius: 8px;
+            z-index: 500; 
+            max-width: 90%; 
+            transition: background-color 0.3s;
+        }
+        .controls-overlay:hover {
+            background-color: rgba(0, 0, 0, 0.4);
+        }
+        
+        .controls-overlay button {
+            background-color: rgba(68, 68, 68, 0.3); 
+            border: none;
+            color: #fff;
+            padding: 8px 10px;
+            font-size: 16px;
+            height: 40px; 
+            line-height: 20px;
+            min-width: 40px;
+            flex-grow: 0;
+            transition: background-color 0.2s;
+        }
+        .controls-overlay button:hover {
+            background-color: #007aff; 
+        }
+        #togglePlay {
+            background-color: #007aff; 
+            font-size: 18px;
+            padding: 8px 15px;
+        }
+        #togglePlay:hover {
+             background-color: #0056b3; 
+        }
+        
+        /* --- 速度選單 (浮動) --- */
+        .speed-menu {
+            position: absolute;
+            background-color: rgba(51, 51, 51, 0.9); 
+            border-radius: 4px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6);
+            padding: 5px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .speed-menu button {
+            background-color: rgba(68, 68, 68, 0.6); 
+            color: #fff;
+            padding: 6px 12px;
+            font-size: 14px;
+            min-width: 100px;
+            flex-grow: 1;
+            height: auto;
+        }
+        .speed-menu button.active {
+            background-color: #007aff;
+        }
 
-/* 影片縮放和平移容器 */
-.video-display {
-    width: 100%;
-    height: 100%;
-    transform-origin: center center; 
-    transition: transform 0.1s ease-out; 
-    touch-action: none; 
-}
 
-#videoPlayer {
-    width: 100%;
-    display: block;
-    background-color: #000;
-}
-
-/* ------------------------------------------------ */
-/* 浮水印控制項 (.controls-overlay) */
-/* ------------------------------------------------ */
-.controls-overlay {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%); 
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 5px 15px;
-    background-color: rgba(0, 0, 0, 0.2); 
-    border-radius: 8px;
-    z-index: 500; 
-    max-width: 90%; 
-    transition: background-color 0.3s;
-
-    /* 確保浮水印控制項在底部安全區域之上 */
-    bottom: calc(10px + constant(safe-area-inset-bottom));
-    bottom: calc(10px + env(safe-area-inset-bottom)); 
-}
-.controls-overlay:hover {
-    background-color: rgba(0, 0, 0, 0.4);
-}
-/* 簡化按鈕樣式 (與前次一致) */
-.controls-overlay button {
-    background-color: rgba(68, 68, 68, 0.3); 
-    border: none;
-    color: #fff;
-    padding: 8px 10px;
-    font-size: 16px;
-    height: 40px; 
-    line-height: 20px;
-    min-width: 40px;
-    flex-grow: 0;
-    transition: background-color 0.2s;
-}
-/* ... 保持 speed-menu 樣式一致 ... */
-
-/* ------------------------------------------------ */
-/* 底部控制面板 (.controls-panel) */
-/* ------------------------------------------------ */
-.controls-panel {
-    padding: 10px;
-    background-color: transparent; 
-    color: #fff;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-/* ... 保持 controls-group, button, input 等樣式一致 ... */
-
-/* ------------------------------------------------ */
-/* 全螢幕模式 (Full Screen) - 關鍵修正區域 */
-/* ------------------------------------------------ */
-.player-container:-webkit-full-screen, .player-container:fullscreen { 
-    width: 100%; 
-    height: 100%; 
-    max-width: none; 
-    display: flex; 
-    flex-direction: column;
-    /* 使用動態高度確保全螢幕高度準確 */
-    height: 100dvh; 
-    height: var(--vh, 100vh);
-}
-
-.player-container:-webkit-full-screen .video-wrapper, 
-.player-container:fullscreen .video-wrapper {
-    flex-grow: 1;
-}
-
-/* 全螢幕模式下的控制面板：允許滾動，並設置底部安全距離 */
-.player-container:-webkit-full-screen .controls-panel,
-.player-container:fullscreen .controls-panel {
-    flex-grow: 0;
-    
-    /* 設置最大高度，讓多餘的內容可以滾動 */
-    max-height: 150px; 
-    overflow-y: auto; 
-    -webkit-overflow-scrolling: touch; 
-    
-    /* 修正：將 padding-bottom 歸零，因為 body 已經處理了底部的安全區域 */
-    padding-bottom: 0; 
-}
-
-/* 額外檢查：在全螢幕模式下，controls-overlay 應被隱藏或移到頂部 */
-.player-container:-webkit-full-screen .controls-overlay {
-    display: none; /* 建議在全螢幕時隱藏浮水印控制項，避免與 native UI 衝突 */
-}
-
+        /* --- 下方控制面板 (背景完全透明) --- */
+        .controls-panel {
+            padding: 10px;
+            background-color: transparent; 
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .controls-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap; 
+        }
+        /* 所有控制項的基礎樣式 */
+        button, select, input[type="number"], #fileInputLabel {
+            padding: 8px 12px;
+            font-size: 14px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            background-color: #444; 
+            color: #fff;
+            box-sizing: border-box;
+            height: 40px; 
+            line-height: 20px;
+            white-space: nowrap;
+        }
+        
+        #timeInfo { min-width: 120px; text-align: right; }
+        #frameInfo { min-width: 60px; }
+        input[type="range"] {
+            flex-grow: 3; min-width: 100px;
+            -webkit-appearance: none; height: 8px; background: #555;
+            border-radius: 5px; cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none; width: 15px;
+            height: 15px; border-radius: 50%; background: #fff;
+        }
+        
+        #fileInputLabel { background-color: #007aff; flex-grow: 0; }
+        #fullscreenBtn { background-color: #444; flex-grow: 0; min-width: 40px; }
+        #fpsSelect { flex-grow: 0; min-width: 70px; }
+        #customFpsInput { flex-grow: 0; width: 60px; text-align: center; background-color: #333; }
+        #fpsDisplay { flex-grow: 1; text-align: left; }
+        
+        /* 全螢幕模式 */
+        .player-container:-webkit-full-screen, .player-container:fullscreen { 
+            width: 100%; height: 100%; max-width: none; display: flex; flex-direction: column;
+        }
+        
+        .player-container:-webkit-full-screen .video-wrapper, 
+        .player-container:fullscreen .video-wrapper {
+            flex-grow: 1;
+        }
+        
+        .player-container:-webkit-full-screen .controls-panel,
+        .player-container:fullscreen .controls-panel {
+            flex-grow: 0;
+        }
     </style>
 </head>
 <body>
@@ -236,7 +261,7 @@ body {
     const speedMenu = document.getElementById('speedMenu');
     const speedOptions = speedMenu.querySelectorAll('button');
     const videoWrapper = document.querySelector('.video-wrapper');
-    const videoDisplay = document.getElementById('videoDisplay');
+    const videoDisplay = document.getElementById('videoDisplay'); // NEW
 
     let assumedFPS = 30; 
     let frameDuration = 1 / assumedFPS;
@@ -244,136 +269,68 @@ body {
     let isDragging = false; 
     let lastObjectURL = null; 
     
-    // --- 縮放/平移狀態變數 ---
+    // --- 縮放/平移狀態變數 (NEW) ---
     let currentScale = 1;
     let initialDistance = 0;
     let initialScale = 1;
-
-    // 平移變數 (NEW)
-    let translateX = 0;
-    let translateY = 0;
-    let startX = 0;
-    let startY = 0;
-    let lastTranslateX = 0;
-    let lastTranslateY = 0;
     
     // 啟動時清理影片源
     video.src = ''; 
     video.load(); 
     timeInfo.textContent = `請選擇影片檔案`;
+
+    // 縮放輸入框初始狀態
     customFpsInput.style.display = 'none';
 
-    // 應用當前的縮放和平移 (使用單一 transform 屬性)
-    function applyTransform() {
-        videoDisplay.style.transform = `translate(${translateX}px, ${translateY}px) scale(${currentScale})`;
-    }
-
-    // --- 觸摸事件處理 (縮放和平移) ---
+    // --- 觸摸事件處理 (NEW) ---
     videoDisplay.addEventListener('touchstart', (e) => {
-        e.preventDefault(); 
-        
-        lastTranslateX = translateX;
-        lastTranslateY = translateY;
-
         if (e.touches.length === 2) {
+            e.preventDefault(); // 防止默認的滾動或縮放行為
+            
             const t1 = e.touches[0];
             const t2 = e.touches[1];
             
-            // 縮放：計算初始距離
+            // 計算初始距離
             initialDistance = Math.sqrt(
                 Math.pow(t2.clientX - t1.clientX, 2) + 
                 Math.pow(t2.clientY - t1.clientY, 2)
             );
-            initialScale = currentScale; 
             
-            // 平移：計算雙指中心點作為平移起點
-            startX = (t1.clientX + t2.clientX) / 2;
-            startY = (t1.clientY + t2.clientY) / 2;
-
-        } else if (e.touches.length === 1) {
-             // 平移：單指觸摸作為平移起點
-             startX = e.touches[0].clientX;
-             startY = e.touches[0].clientY;
+            // 記錄當前縮放值
+            initialScale = currentScale; 
         }
     }, { passive: false });
 
     videoDisplay.addEventListener('touchmove', (e) => {
-        e.preventDefault(); 
-        
-        const rect = videoDisplay.getBoundingClientRect();
-        const maxPanX = (rect.width * currentScale - rect.width) / 2;
-        const maxPanY = (rect.height * currentScale - rect.height) / 2;
-
-
         if (e.touches.length === 2) {
-            // --- 雙指處理：縮放 AND 平移 ---
+            e.preventDefault(); // 防止默認的滾動或縮放行為
             
             const t1 = e.touches[0];
             const t2 = e.touches[1];
 
-            // 1. 縮放計算
+            // 計算當前距離
             const currentDistance = Math.sqrt(
                 Math.pow(t2.clientX - t1.clientX, 2) + 
                 Math.pow(t2.clientY - t1.clientY, 2)
             );
+
             if (initialDistance > 0) {
+                // 計算新的縮放值
                 let newScale = initialScale * (currentDistance / initialDistance);
-                currentScale = Math.min(Math.max(1, newScale), 5); // 最小縮放為 1x
+                
+                // 限制縮放範圍 (例如：0.5x 到 5x)
+                currentScale = Math.min(Math.max(0.5, newScale), 5);
+                
+                // 應用 CSS 變形
+                videoDisplay.style.transform = `scale(${currentScale})`;
             }
-
-            // 2. 平移計算 (基於中心點移動)
-            const currentX = (t1.clientX + t2.clientX) / 2;
-            const currentY = (t1.clientY + t2.clientY) / 2;
-            
-            // 計算總移動量
-            const deltaX = currentX - startX;
-            const deltaY = currentY - startY;
-            
-            // 將總移動量加到上一個平移狀態上
-            translateX = lastTranslateX + deltaX;
-            translateY = lastTranslateY + deltaY;
-
-
-        } else if (e.touches.length === 1 && currentScale > 1) {
-            // --- 單指處理：平移 (僅當已縮放時才啟用) ---
-            
-            const deltaX = e.touches[0].clientX - startX;
-            const deltaY = e.touches[0].clientY - startY;
-
-            translateX = lastTranslateX + deltaX;
-            translateY = lastTranslateY + deltaY;
         }
-        
-        // 限制平移範圍，防止移出畫面
-        translateX = Math.min(Math.max(translateX, -maxPanX), maxPanX);
-        translateY = Math.min(Math.max(translateY, -maxPanY), maxPanY);
-        
-        // 如果縮放為 1x，則強制歸零平移
-        if (currentScale <= 1.01) { 
-             translateX = 0;
-             translateY = 0;
-             currentScale = 1;
-        }
-
-
-        applyTransform();
-
     }, { passive: false });
 
     videoDisplay.addEventListener('touchend', () => {
         // 重設距離和縮放狀態
         initialDistance = 0;
-        initialScale = currentScale;
-        lastTranslateX = translateX;
-        lastTranslateY = translateY;
-        
-        // 確保縮放值不會是 1.01，而是準確的 1
-        if (currentScale <= 1.01) {
-            currentScale = 1;
-            translateX = 0;
-            translateY = 0;
-            applyTransform();
-        }
+        initialScale = currentScale; 
     });
     
     // --- FPS 處理邏輯 (保持不變) ---
@@ -468,13 +425,9 @@ body {
             video.currentTime = 0; 
             updateTimeInfo(0, video.duration || 0);
 
-            // 重設縮放和平移狀態 (NEW)
+            // 重設縮放狀態 (NEW)
             currentScale = 1;
-            translateX = 0;
-            translateY = 0;
-            lastTranslateX = 0;
-            lastTranslateY = 0;
-            applyTransform();
+            videoDisplay.style.transform = `scale(1)`;
         }
     });
 
