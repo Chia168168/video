@@ -165,20 +165,27 @@
         #customFpsInput { flex-grow: 0; width: 60px; text-align: center; background-color: #333; }
         #fpsDisplay { flex-grow: 1; text-align: left; }
         
-        /* 全螢幕模式 */
-        .player-container:-webkit-full-screen, .player-container:fullscreen { 
-            width: 100%; height: 100%; max-width: none; display: flex; flex-direction: column;
-        }
-        
-        .player-container:-webkit-full-screen .video-wrapper, 
-        .player-container:fullscreen .video-wrapper {
-            flex-grow: 1;
-        }
-        
-        .player-container:-webkit-full-screen .controls-panel,
-        .player-container:fullscreen .controls-panel {
-            flex-grow: 0;
-        }
+/* 全螢幕模式 */
+.player-container:-webkit-full-screen, .player-container:fullscreen { 
+    width: 100%; height: 100%; max-width: none; display: flex; flex-direction: column;
+}
+
+.player-container:-webkit-full-screen .video-wrapper, 
+.player-container:fullscreen .video-wrapper {
+    flex-grow: 1;
+    /* 這裡可以設置一個最大高度，以確保控制面板有空間 */
+    max-height: calc(100vh - 80px); /* 預留底部空間給控制面板 */
+}
+
+/* 關鍵修正：讓控制面板在全螢幕模式下可以滾動 */
+.player-container:-webkit-full-screen .controls-panel,
+.player-container:fullscreen .controls-panel {
+    flex-grow: 0;
+    max-height: 100px; /* 給一個最大高度，可以根據實際情況調整 */
+    overflow-y: auto; /* 允許垂直滾動 */
+    -webkit-overflow-scrolling: touch; /* 讓 iOS 滾動更流暢 */
+}
+
     </style>
 </head>
 <body>
