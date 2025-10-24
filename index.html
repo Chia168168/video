@@ -261,7 +261,7 @@
     const speedMenu = document.getElementById('speedMenu');
     const speedOptions = speedMenu.querySelectorAll('button');
     const videoWrapper = document.querySelector('.video-wrapper');
-    const videoDisplay = document.getElementById('videoDisplay'); // NEW
+    const videoDisplay = document.getElementById('videoDisplay'); 
 
     let assumedFPS = 30; 
     let frameDuration = 1 / assumedFPS;
@@ -269,10 +269,18 @@
     let isDragging = false; 
     let lastObjectURL = null; 
     
-    // --- 縮放/平移狀態變數 (NEW) ---
+    // --- 縮放/平移狀態變數 (新增/修改) ---
     let currentScale = 1;
     let initialDistance = 0;
     let initialScale = 1;
+
+    // 平移變數 (NEW)
+    let translateX = 0;
+    let translateY = 0;
+    let startX = 0;
+    let startY = 0;
+    let lastTranslateX = 0;
+    let lastTranslateY = 0; // 用於記錄觸摸開始時的平移狀態
     
     // 啟動時清理影片源
     video.src = ''; 
@@ -282,56 +290,117 @@
     // 縮放輸入框初始狀態
     customFpsInput.style.display = 'none';
 
-    // --- 觸摸事件處理 (NEW) ---
+    // 應用當前的縮放和平移 (使用單一 transform 屬性)
+    function applyTransform() {
+        videoDisplay.style.transform = `translate(${translateX}px, ${translateY}px) scale(${currentScale})`;
+    }
+
+    // --- 觸摸事件處理 (縮放和平移) ---
     videoDisplay.addEventListener('touchstart', (e) => {
+        e.preventDefault(); // 防止默認的滾動或縮放行為
+        
+        lastTranslateX = translateX;
+        lastTranslateY = translateY;
+
         if (e.touches.length === 2) {
-            e.preventDefault(); // 防止默認的滾動或縮放行為
-            
             const t1 = e.touches[0];
             const t2 = e.touches[1];
             
-            // 計算初始距離
+            // 縮放：計算初始距離
             initialDistance = Math.sqrt(
                 Math.pow(t2.clientX - t1.clientX, 2) + 
                 Math.pow(t2.clientY - t1.clientY, 2)
             );
-            
-            // 記錄當前縮放值
             initialScale = currentScale; 
+            
+            // 雙指平移起點：計算雙指中心點
+            startX = (t1.clientX + t2.clientX) / 2;
+            startY = (t1.clientY + t2.clientY) / 2;
+
+        } else if (e.touches.length === 1) {
+             // 單指平移起點
+             startX = e.touches[0].clientX;
+             startY = e.touches[0].clientY;
         }
     }, { passive: false });
 
     videoDisplay.addEventListener('touchmove', (e) => {
+        e.preventDefault(); // 防止默認的滾動或縮放行為
+        
+        const rect = videoDisplay.getBoundingClientRect();
+        // 計算縮放後的影片邊界與原影片邊界之間的距離
+        const maxPanX = (rect.width * currentScale - rect.width) / 2;
+        const maxPanY = (rect.height * currentScale - rect.height) / 2;
+
+
         if (e.touches.length === 2) {
-            e.preventDefault(); // 防止默認的滾動或縮放行為
+            // --- 雙指處理：縮放 AND 平移 ---
             
             const t1 = e.touches[0];
             const t2 = e.touches[1];
 
-            // 計算當前距離
+            // 1. 縮放計算
             const currentDistance = Math.sqrt(
                 Math.pow(t2.clientX - t1.clientX, 2) + 
                 Math.pow(t2.clientY - t1.clientY, 2)
             );
-
             if (initialDistance > 0) {
-                // 計算新的縮放值
                 let newScale = initialScale * (currentDistance / initialDistance);
-                
-                // 限制縮放範圍 (例如：0.5x 到 5x)
-                currentScale = Math.min(Math.max(0.5, newScale), 5);
-                
-                // 應用 CSS 變形
-                videoDisplay.style.transform = `scale(${currentScale})`;
+                currentScale = Math.min(Math.max(1, newScale), 5); // 最小縮放設定為 1x
             }
+
+            // 2. 平移計算 (基於中心點移動)
+            const currentX = (t1.clientX + t2.clientX) / 2;
+            const currentY = (t1.clientY + t2.clientY) / 2;
+            
+            const deltaX = currentX - startX;
+            const deltaY = currentY - startY;
+            
+            translateX = lastTranslateX + deltaX;
+            translateY = lastTranslateY + deltaY;
+
+
+        } else if (e.touches.length === 1 && currentScale > 1) {
+            // --- 單指處理：平移 (僅當已縮放時才啟用) ---
+            
+            const deltaX = e.touches[0].clientX - startX;
+            const deltaY = e.touches[0].clientY - startY;
+
+            translateX = lastTranslateX + deltaX;
+            translateY = lastTranslateY + deltaY;
         }
+        
+        // 限制平移範圍，防止移出畫面
+        translateX = Math.min(Math.max(translateX, -maxPanX), maxPanX);
+        translateY = Math.min(Math.max(translateY, -maxPanY), maxPanY);
+        
+        // 如果縮放為 1x，則強制歸零平移
+        if (currentScale <= 1.01) { 
+             translateX = 0;
+             translateY = 0;
+             currentScale = 1;
+        }
+
+        applyTransform();
+
     }, { passive: false });
 
     videoDisplay.addEventListener('touchend', () => {
-        // 重設距離和縮放狀態
+        // 重設距離和狀態
         initialDistance = 0;
-        initialScale = currentScale; 
+        initialScale = currentScale;
+        lastTranslateX = translateX;
+        lastTranslateY = translateY;
+        
+        // 確保縮放值不會是 1.01，而是準確的 1
+        if (currentScale <= 1.01) {
+            currentScale = 1;
+            translateX = 0;
+            translateY = 0;
+            applyTransform();
+        }
     });
+
     
     // --- FPS 處理邏輯 (保持不變) ---
     function updateFps(fpsValue) {
@@ -425,9 +494,13 @@
             video.currentTime = 0; 
             updateTimeInfo(0, video.duration || 0);
 
-            // 重設縮放狀態 (NEW)
+            // 重設縮放和平移狀態 (NEW)
             currentScale = 1;
-            videoDisplay.style.transform = `scale(1)`;
+            translateX = 0;
+            translateY = 0;
+            lastTranslateX = 0;
+            lastTranslateY = 0;
+            applyTransform();
         }
     });
 
@@ -562,5 +635,6 @@
     });
 
 </script>
+
 </body>
 </html>
