@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TENG影片播放器</title>
+    <title>iPhone 影片分析播放器</title>
     <style>
 /* ------------------------------------------------ */
 /* 核心樣式：確保內容始終在瀏覽器安全區內 */
@@ -29,22 +29,21 @@ body {
 .player-container {
     width: 100%;
     max-width: 900px;
-    background-color: transparent; /* 關鍵：容器背景透明 */
+    background-color: transparent; 
     /* 確保容器佔滿所有可用高度 */
     height: 100%;
-    /* 啟用 Flexbox 以堆疊影片和控制面板 (現在控制面板移到 video-wrapper 內了) */
     display: flex; 
     flex-direction: column;
 }
 
 /* 影片容器：佔據 player-container 剩餘空間 */
 .video-wrapper {
-    position: relative; /* 關鍵：提供給 controls-panel 絕對定位的基準 */
+    position: relative; 
     line-height: 0;
     overflow: hidden; 
     flex-grow: 1; 
     touch-action: none; 
-    background-color: #000; /* 影片底色為黑色 */
+    background-color: #000; 
 }
 
 /* 影片縮放和平移容器 */
@@ -58,8 +57,8 @@ body {
 
 #videoPlayer {
     width: 100%;
-    height: 100%; /* 讓影片佔滿 wrapper */
-    object-fit: contain; /* 確保影片縮放時不會被裁切 */
+    height: 100%; 
+    object-fit: contain; 
     display: block;
     background-color: #000;
 }
@@ -94,23 +93,54 @@ body {
 /* 下方控制面板 (懸浮透明化) */
 /* ------------------------------------------------ */
 .controls-panel {
-    position: absolute; /* 關鍵：絕對定位，疊加在影片上方 */
+    position: absolute; 
     bottom: 0;
     left: 0;
     right: 0;
     width: 100%;
     
-    /* 確保避開 Home Bar 區域 */
     padding: 10px;
     padding-bottom: calc(10px + constant(safe-area-inset-bottom));
     padding-bottom: calc(10px + env(safe-area-inset-bottom));
     
-    background-color: transparent; /* 關鍵：完全透明 */
+    background-color: transparent; 
     color: #fff;
     display: flex;
     flex-direction: column;
     gap: 10px;
-    z-index: 50; /* 確保在影片上層 */
+    z-index: 50; 
+    pointer-events: none; /* 讓面板透明區塊可點擊穿透到影片上 */
+}
+.controls-panel > * {
+    pointer-events: auto; /* 但確保內部的控制元件是可點擊的 */
+}
+
+
+/* 控制項群組 */
+.controls-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+/* ------------------------------------------------ */
+/* 浮水印播放控制按鈕 - 專屬樣式調整 */
+/* ------------------------------------------------ */
+.controls-group.controls-playback {
+    /* 讓播放按鈕獨立懸浮在畫面中央，而不是底部 */
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%; /* 佔據畫面寬度 */
+    max-width: 700px;
+    gap: 0; /* 移除間距，讓按鈕緊貼 */
+    z-index: 100;
+    pointer-events: none; /* 讓按鈕間的空隙可點擊穿透 */
+}
+.controls-group.controls-playback > * {
+    pointer-events: auto; /* 確保按鈕本身可點擊 */
 }
 
 /* 所有控制項的基礎樣式 (半透明背景) */
@@ -120,7 +150,7 @@ button, select, input[type="number"], #fileInputLabel {
     cursor: pointer;
     border: none;
     border-radius: 4px;
-    background-color: rgba(68, 68, 68, 0.6); /* 使用略深的半透明背景，在影片上更明顯 */
+    background-color: rgba(68, 68, 68, 0.6); 
     color: #fff;
     box-sizing: border-box;
     height: 40px; 
@@ -128,24 +158,42 @@ button, select, input[type="number"], #fileInputLabel {
     white-space: nowrap;
     transition: background-color 0.2s;
 }
-/* hover 效果也改為半透明深色 */
-button:hover, #fileInputLabel:hover {
-    background-color: rgba(68, 68, 68, 0.8);
-}
-/* 專門為新的播放控制按鈕設計樣式 */
+
+/* 浮水印控制按鈕 (7個) */
 .controls-group.controls-playback button {
-    background-color: rgba(68, 68, 68, 0.6);
-    min-width: 40px;
+    flex-grow: 1; /* 均勻分佈寬度 */
+    height: 60px; /* 增大按鈕高度 */
+    font-size: 28px; /* 增大圖示 */
+    margin: 0 4px; /* 按鈕間隔一點點空間 */
+    background-color: rgba(50, 50, 50, 0.2); /* 關鍵：更透明的背景 */
+    color: rgba(255, 255, 255, 0.9); /* 白色圖示 */
+    border: 1px solid rgba(255, 255, 255, 0.1); /* 略微邊框 */
 }
+
+/* 播放按鈕特別處理 */
 #togglePlay {
-    background-color: rgba(0, 122, 255, 0.8); 
-    font-size: 18px;
-    padding: 8px 15px;
-    min-width: 50px;
+    background-color: rgba(0, 122, 255, 0.3); /* 藍色，更透明 */
+    font-size: 30px; /* 播放圖示再大一點 */
 }
-#togglePlay:hover {
-     background-color: rgba(0, 86, 179, 0.9); 
+
+/* hover/active 效果 */
+.controls-group.controls-playback button:hover, 
+.controls-group.controls-playback button:active {
+     background-color: rgba(0, 122, 255, 0.5); 
 }
+
+
+/* ------------------------------------------------ */
+/* 底部控制項的基礎樣式 (時間、FPS、選擇按鈕等) */
+/* ------------------------------------------------ */
+/* 讓底部控制項回到畫面上方，但保留原來的半透明度 */
+.controls-group.controls-progress,
+.controls-group.controls-setup {
+    position: relative; /* 確保它們位於 controls-panel 底部 */
+    width: 100%;
+    margin-top: auto; /* 將它們推到底部 */
+}
+
 /* 資訊顯示 (使用完全透明背景) */
 .status-info { 
     background-color: transparent; 
@@ -159,22 +207,7 @@ button:hover, #fileInputLabel:hover {
 
 /* 進度條 */
 input[type="range"] {
-    flex-grow: 3; min-width: 100px;
-    -webkit-appearance: none; height: 8px; 
     background: rgba(85, 85, 85, 0.7); 
-    border-radius: 5px; cursor: pointer;
-}
-input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none; appearance: none; width: 15px;
-    height: 15px; border-radius: 50%; background: #fff;
-}
-
-/* FPS 選單 */
-#fpsSelect { 
-    background-color: rgba(68, 68, 68, 0.6); 
-}
-#customFpsInput { 
-    background-color: rgba(51, 51, 51, 0.7); 
 }
 
 /* 檔案選擇按鈕樣式 */
@@ -217,6 +250,18 @@ input[type="range"]::-webkit-slider-thumb {
             <button data-rate="1fps">逐幀 (Frame)</button>
         </div>
         
+        
+        <div class="controls-group controls-playback">
+            <button id="stepBackward" title="後退 0.1 秒">⏮</button>
+            <button id="frameBackward" title="逐幀退後">⏴</button>
+            <button id="togglePlay">▶</button>
+            <button id="frameForward" title="逐幀前進">⏵</button>
+            <button id="stepForward" title="快進 0.1 秒">⏭</button>
+            
+            <button id="speedBtn" title="播放速度">⏱</button>
+            <button id="saveFrame" title="儲存畫面">🖼</button>
+        </div>
+        
         <div class="controls-panel">
             
             <div class="controls-group controls-progress">
@@ -225,17 +270,6 @@ input[type="range"]::-webkit-slider-thumb {
                 <span class="status-info" id="timeInfo">00:00.00 / 00:00.00</span>
             </div>
             
-            <div class="controls-group controls-playback">
-                <button id="stepBackward" title="後退 0.1 秒">⏮</button>
-                <button id="frameBackward" title="逐幀退後">⏴</button>
-                <button id="togglePlay">▶</button>
-                <button id="frameForward" title="逐幀前進">⏵</button>
-                <button id="stepForward" title="快進 0.1 秒">⏭</button>
-                
-                <button id="speedBtn" title="播放速度">⏱</button>
-                <button id="saveFrame" title="儲存畫面">🖼</button>
-            </div>
-
             <div class="controls-group controls-setup">
                 
                 <label for="fileInput" id="fileInputLabel">選擇影片</label>
@@ -278,12 +312,22 @@ input[type="range"]::-webkit-slider-thumb {
     const videoWrapper = document.querySelector('.video-wrapper');
     const videoDisplay = document.getElementById('videoDisplay'); 
     const controlsPanel = document.querySelector('.controls-panel'); 
-
+    
+    // 長按邏輯相關元素
+    const stepBackwardBtn = document.getElementById('stepBackward');
+    const frameBackwardBtn = document.getElementById('frameBackward');
+    const frameForwardBtn = document.getElementById('frameForward');
+    const stepForwardBtn = document.getElementById('stepForward');
+    
     let assumedFPS = 30; 
     let frameDuration = 1 / assumedFPS;
     let currentRate = '1.0'; 
     let isDragging = false; 
     let lastObjectURL = null; 
+    
+    // 長按計時器變數
+    let holdTimer = null;
+    let holdInterval = 100; // 毫秒，重複執行的間隔
     
     // --- 縮放/平移狀態變數 (保持不變) ---
     let currentScale = 1;
@@ -310,6 +354,99 @@ input[type="range"]::-webkit-slider-thumb {
     function applyTransform() {
         videoDisplay.style.transform = `translate(${translateX}px, ${translateY}px) scale(${currentScale})`;
     }
+
+    // --- 長按邏輯函數 ---
+    function executeAction(action) {
+        if (!video.src) return;
+        video.pause();
+        switch(action) {
+            case 'stepBackward': video.currentTime = Math.max(0, video.currentTime - 0.1); break;
+            case 'frameBackward': 
+                let currentFrameB = Math.round(video.currentTime / frameDuration);
+                let targetFrameB = Math.max(0, currentFrameB - 1);
+                video.currentTime = targetFrameB * frameDuration;
+                break;
+            case 'frameForward': 
+                let currentFrameF = Math.round(video.currentTime / frameDuration);
+                let targetFrameF = currentFrameF + 1;
+                video.currentTime = Math.min(video.duration, targetFrameF * frameDuration);
+                break;
+            case 'stepForward': video.currentTime = Math.min(video.duration, video.currentTime + 0.1); break;
+        }
+    }
+
+    function startHold(action) {
+        // 先執行一次 (作為 click 的效果)
+        executeAction(action);
+        
+        // 清除舊計時器，避免重複啟動
+        clearTimeout(holdTimer); 
+        
+        // 啟動重複執行計時器
+        holdTimer = setInterval(() => {
+            executeAction(action);
+        }, holdInterval);
+    }
+    
+    function stopHold() {
+        clearInterval(holdTimer);
+        holdTimer = null;
+    }
+    
+    const holdButtons = [
+        { id: stepBackwardBtn, action: 'stepBackward' },
+        { id: frameBackwardBtn, action: 'frameBackward' },
+        { id: frameForwardBtn, action: 'frameForward' },
+        { id: stepForwardBtn, action: 'stepForward' }
+    ];
+
+    // 為所有長按按鈕添加事件監聽器
+    holdButtons.forEach(btn => {
+        // 桌面端 (滑鼠按下)
+        btn.id.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            // 在長按開始前，先執行一次動作，並等待 300ms 再開始重複
+            executeAction(btn.action); 
+            
+            // 使用 setTimeout 創造 "長按" 的延遲，避免單次點擊也觸發重複
+            clearTimeout(holdTimer); 
+            holdTimer = setTimeout(() => {
+                startHold(btn.action);
+            }, 300); 
+        });
+        
+        // 桌面端 (滑鼠釋放或離開)
+        btn.id.addEventListener('mouseup', () => {
+             clearTimeout(holdTimer);
+             if (holdTimer) stopHold(); // 如果計時器已啟動（即長按發生），則停止
+        });
+        btn.id.addEventListener('mouseleave', () => {
+             clearTimeout(holdTimer);
+             if (holdTimer) stopHold();
+        });
+        
+        // 行動端 (觸摸開始)
+        btn.id.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            executeAction(btn.action); 
+            
+            clearTimeout(holdTimer);
+            holdTimer = setTimeout(() => {
+                startHold(btn.action);
+            }, 300);
+        }, { passive: false });
+
+        // 行動端 (觸摸結束)
+        btn.id.addEventListener('touchend', () => {
+             clearTimeout(holdTimer);
+             if (holdTimer) stopHold();
+        });
+        btn.id.addEventListener('touchcancel', () => {
+             clearTimeout(holdTimer);
+             if (holdTimer) stopHold();
+        });
+    });
+
 
     // --- 觸摸事件處理 (縮放和平移) (保持不變) ---
     videoDisplay.addEventListener('touchstart', (e) => {
@@ -436,13 +573,11 @@ input[type="range"]::-webkit-slider-thumb {
         const controlsPanelRect = controlsPanel.getBoundingClientRect(); 
         
         // 速度選單需要重新計算定位，使其浮動在控制面板上方，但不超出 video-wrapper
-        // 計算速度按鈕相對於 video-wrapper 頂部的距離
         const wrapperRect = videoWrapper.getBoundingClientRect();
-        const btnTop = rect.top - wrapperRect.top;
         const btnRight = wrapperRect.right - rect.right; 
         
         // 設定 speedMenu 的位置 (從底部算起，以避免超出螢幕)
-        speedMenu.style.bottom = `${controlsPanelRect.height + 5}px`; /* 高於控制面板一點點 */
+        speedMenu.style.bottom = `${controlsPanelRect.offsetHeight + 5}px`; /* 高於控制面板一點點 */
         speedMenu.style.right = `${btnRight}px`; 
         
         speedMenu.style.display = speedMenu.style.display === 'flex' ? 'none' : 'flex';
@@ -582,26 +717,6 @@ input[type="range"]::-webkit-slider-thumb {
         timeInfo.textContent = `${formatTime(currentTime)} / ${formatTime(duration)}`;
         frameInfo.textContent = `F: ${currentFrame}`;
     }
-
-    // 5. 前進/後退（秒數）和 逐幀
-    document.getElementById('stepBackward').addEventListener('click', () => {
-        if (!video.src) return; video.currentTime = Math.max(0, video.currentTime - 0.1); video.pause();
-    });
-    document.getElementById('stepForward').addEventListener('click', () => {
-        if (!video.src) return; video.currentTime = Math.min(video.duration, video.currentTime + 0.1); video.pause();
-    });
-    document.getElementById('frameBackward').addEventListener('click', () => {
-        if (!video.src || isNaN(frameDuration)) return; video.pause();
-        let currentFrame = Math.round(video.currentTime / frameDuration);
-        let targetFrame = Math.max(0, currentFrame - 1);
-        video.currentTime = targetFrame * frameDuration;
-    });
-    document.getElementById('frameForward').addEventListener('click', () => {
-        if (!video.src || isNaN(frameDuration)) return; video.pause();
-        let currentFrame = Math.round(video.currentTime / frameDuration);
-        let targetFrame = currentFrame + 1;
-        video.currentTime = Math.min(video.duration, targetFrame * frameDuration);
-    });
 
     // 6. 進度條拖曳控制
     progressBar.addEventListener('mousedown', () => isDragging = true);
