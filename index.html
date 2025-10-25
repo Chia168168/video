@@ -18,11 +18,10 @@ body {
     background-color: #f0f0f0;
     user-select: none;
     
-    /* 讓內容避開底部的系統工具欄/Home Bar (關鍵修正) */
+    /* 讓內容避開底部的系統工具欄/Home Bar */
     padding-bottom: constant(safe-area-inset-bottom);
     padding-bottom: env(safe-area-inset-bottom);
     
-    /* 讓 body 滾動條消失，因為內容應該總是佔滿視口 */
     height: 100vh;
 }
 
@@ -30,7 +29,6 @@ body {
     width: 100%;
     max-width: 900px;
     background-color: transparent; 
-    /* 確保容器佔滿所有可用高度 */
     height: 100%;
     display: flex; 
     flex-direction: column;
@@ -90,7 +88,7 @@ body {
 }
 
 /* ------------------------------------------------ */
-/* 下方控制面板 (懸浮透明化) */
+/* 下方控制面板 (懸浮透明化，包含所有底部控制項) */
 /* ------------------------------------------------ */
 .controls-panel {
     position: absolute; 
@@ -99,6 +97,7 @@ body {
     right: 0;
     width: 100%;
     
+    /* 確保避開 Home Bar 區域 */
     padding: 10px;
     padding-bottom: calc(10px + constant(safe-area-inset-bottom));
     padding-bottom: calc(10px + env(safe-area-inset-bottom));
@@ -121,26 +120,19 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
-    flex-wrap: wrap;
+    flex-wrap: wrap; 
+    width: 100%;
 }
-
 /* ------------------------------------------------ */
-/* 浮水印播放控制按鈕 - 專屬樣式調整 */
+/* 浮水印播放控制按鈕 - 專屬樣式調整 (現在位於底部) */
 /* ------------------------------------------------ */
 .controls-group.controls-playback {
-    /* 讓播放按鈕獨立懸浮在畫面中央，而不是底部 */
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 90%; /* 佔據畫面寬度 */
-    max-width: 700px;
-    gap: 0; /* 移除間距，讓按鈕緊貼 */
-    z-index: 100;
-    pointer-events: none; /* 讓按鈕間的空隙可點擊穿透 */
-}
-.controls-group.controls-playback > * {
-    pointer-events: auto; /* 確保按鈕本身可點擊 */
+    /* 關鍵：強制保持在單行 */
+    flex-wrap: nowrap; 
+    /* 關鍵：確保即使內容溢出也不換行 (雖然我們希望用 flex-grow 解決) */
+    min-width: 0; 
+    /* 讓按鈕均勻分佈在整行 */
+    justify-content: space-between; 
 }
 
 /* 所有控制項的基礎樣式 (半透明背景) */
@@ -162,36 +154,37 @@ button, select, input[type="number"], #fileInputLabel {
 /* 浮水印控制按鈕 (7個) */
 .controls-group.controls-playback button {
     flex-grow: 1; /* 均勻分佈寬度 */
-    height: 60px; /* 增大按鈕高度 */
-    font-size: 28px; /* 增大圖示 */
-    margin: 0 4px; /* 按鈕間隔一點點空間 */
-    background-color: rgba(50, 50, 50, 0.2); /* 關鍵：更透明的背景 */
-    color: rgba(255, 255, 255, 0.9); /* 白色圖示 */
-    border: 1px solid rgba(255, 255, 255, 0.1); /* 略微邊框 */
+    flex-basis: 0; /* 讓 flex-grow 能正確工作 */
+    height: 45px; /* 適度調整高度 */
+    font-size: 20px; /* 增大圖示 */
+    margin: 0 2px; /* 按鈕間隔一點點空間 */
+    background-color: rgba(50, 50, 50, 0.4); /* 調整背景色，讓其在底部依然透明但可見 */
+    color: rgba(255, 255, 255, 0.9); 
+    border: 1px solid rgba(255, 255, 255, 0.1); 
+    min-width: 0; /* 確保在極窄螢幕下也能正確縮小 */
 }
 
 /* 播放按鈕特別處理 */
 #togglePlay {
-    background-color: rgba(0, 122, 255, 0.3); /* 藍色，更透明 */
-    font-size: 30px; /* 播放圖示再大一點 */
+    background-color: rgba(0, 122, 255, 0.5); /* 藍色，更透明 */
+    font-size: 22px; 
 }
 
 /* hover/active 效果 */
 .controls-group.controls-playback button:hover, 
 .controls-group.controls-playback button:active {
-     background-color: rgba(0, 122, 255, 0.5); 
+     background-color: rgba(0, 122, 255, 0.7); 
 }
 
 
 /* ------------------------------------------------ */
 /* 底部控制項的基礎樣式 (時間、FPS、選擇按鈕等) */
 /* ------------------------------------------------ */
-/* 讓底部控制項回到畫面上方，但保留原來的半透明度 */
-.controls-group.controls-progress,
-.controls-group.controls-setup {
-    position: relative; /* 確保它們位於 controls-panel 底部 */
-    width: 100%;
-    margin-top: auto; /* 將它們推到底部 */
+
+/* 進度條和時間資訊 */
+.controls-group.controls-progress {
+    margin-top: auto; /* 將它推到底部 */
+    gap: 12px;
 }
 
 /* 資訊顯示 (使用完全透明背景) */
@@ -208,6 +201,11 @@ button, select, input[type="number"], #fileInputLabel {
 /* 進度條 */
 input[type="range"] {
     background: rgba(85, 85, 85, 0.7); 
+}
+
+/* 檔案選擇和 FPS 設定 */
+.controls-group.controls-setup {
+    margin-top: 0;
 }
 
 /* 檔案選擇按鈕樣式 */
@@ -250,18 +248,6 @@ input[type="range"] {
             <button data-rate="1fps">逐幀 (Frame)</button>
         </div>
         
-        
-        <div class="controls-group controls-playback">
-            <button id="stepBackward" title="後退 0.1 秒">⏮</button>
-            <button id="frameBackward" title="逐幀退後">⏴</button>
-            <button id="togglePlay">▶</button>
-            <button id="frameForward" title="逐幀前進">⏵</button>
-            <button id="stepForward" title="快進 0.1 秒">⏭</button>
-            
-            <button id="speedBtn" title="播放速度">⏱</button>
-            <button id="saveFrame" title="儲存畫面">🖼</button>
-        </div>
-        
         <div class="controls-panel">
             
             <div class="controls-group controls-progress">
@@ -270,6 +256,17 @@ input[type="range"] {
                 <span class="status-info" id="timeInfo">00:00.00 / 00:00.00</span>
             </div>
             
+            <div class="controls-group controls-playback">
+                <button id="stepBackward" title="後退 0.1 秒">⏮</button>
+                <button id="frameBackward" title="逐幀退後">⏴</button>
+                <button id="togglePlay">▶</button>
+                <button id="frameForward" title="逐幀前進">⏵</button>
+                <button id="stepForward" title="快進 0.1 秒">⏭</button>
+                
+                <button id="speedBtn" title="播放速度">⏱</button>
+                <button id="saveFrame" title="儲存畫面">🖼</button>
+            </div>
+
             <div class="controls-group controls-setup">
                 
                 <label for="fileInput" id="fileInputLabel">選擇影片</label>
@@ -354,99 +351,6 @@ input[type="range"] {
     function applyTransform() {
         videoDisplay.style.transform = `translate(${translateX}px, ${translateY}px) scale(${currentScale})`;
     }
-
-    // --- 長按邏輯函數 ---
-    function executeAction(action) {
-        if (!video.src) return;
-        video.pause();
-        switch(action) {
-            case 'stepBackward': video.currentTime = Math.max(0, video.currentTime - 0.1); break;
-            case 'frameBackward': 
-                let currentFrameB = Math.round(video.currentTime / frameDuration);
-                let targetFrameB = Math.max(0, currentFrameB - 1);
-                video.currentTime = targetFrameB * frameDuration;
-                break;
-            case 'frameForward': 
-                let currentFrameF = Math.round(video.currentTime / frameDuration);
-                let targetFrameF = currentFrameF + 1;
-                video.currentTime = Math.min(video.duration, targetFrameF * frameDuration);
-                break;
-            case 'stepForward': video.currentTime = Math.min(video.duration, video.currentTime + 0.1); break;
-        }
-    }
-
-    function startHold(action) {
-        // 先執行一次 (作為 click 的效果)
-        executeAction(action);
-        
-        // 清除舊計時器，避免重複啟動
-        clearTimeout(holdTimer); 
-        
-        // 啟動重複執行計時器
-        holdTimer = setInterval(() => {
-            executeAction(action);
-        }, holdInterval);
-    }
-    
-    function stopHold() {
-        clearInterval(holdTimer);
-        holdTimer = null;
-    }
-    
-    const holdButtons = [
-        { id: stepBackwardBtn, action: 'stepBackward' },
-        { id: frameBackwardBtn, action: 'frameBackward' },
-        { id: frameForwardBtn, action: 'frameForward' },
-        { id: stepForwardBtn, action: 'stepForward' }
-    ];
-
-    // 為所有長按按鈕添加事件監聽器
-    holdButtons.forEach(btn => {
-        // 桌面端 (滑鼠按下)
-        btn.id.addEventListener('mousedown', (e) => {
-            e.preventDefault();
-            // 在長按開始前，先執行一次動作，並等待 300ms 再開始重複
-            executeAction(btn.action); 
-            
-            // 使用 setTimeout 創造 "長按" 的延遲，避免單次點擊也觸發重複
-            clearTimeout(holdTimer); 
-            holdTimer = setTimeout(() => {
-                startHold(btn.action);
-            }, 300); 
-        });
-        
-        // 桌面端 (滑鼠釋放或離開)
-        btn.id.addEventListener('mouseup', () => {
-             clearTimeout(holdTimer);
-             if (holdTimer) stopHold(); // 如果計時器已啟動（即長按發生），則停止
-        });
-        btn.id.addEventListener('mouseleave', () => {
-             clearTimeout(holdTimer);
-             if (holdTimer) stopHold();
-        });
-        
-        // 行動端 (觸摸開始)
-        btn.id.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            executeAction(btn.action); 
-            
-            clearTimeout(holdTimer);
-            holdTimer = setTimeout(() => {
-                startHold(btn.action);
-            }, 300);
-        }, { passive: false });
-
-        // 行動端 (觸摸結束)
-        btn.id.addEventListener('touchend', () => {
-             clearTimeout(holdTimer);
-             if (holdTimer) stopHold();
-        });
-        btn.id.addEventListener('touchcancel', () => {
-             clearTimeout(holdTimer);
-             if (holdTimer) stopHold();
-        });
-    });
-
 
     // --- 觸摸事件處理 (縮放和平移) (保持不變) ---
     videoDisplay.addEventListener('touchstart', (e) => {
@@ -542,6 +446,96 @@ input[type="range"] {
         }
     });
     
+    // --- 長按邏輯函數 (從上一個版本繼承) ---
+    function executeAction(action) {
+        if (!video.src) return;
+        video.pause();
+        switch(action) {
+            case 'stepBackward': video.currentTime = Math.max(0, video.currentTime - 0.1); break;
+            case 'frameBackward': 
+                let currentFrameB = Math.round(video.currentTime / frameDuration);
+                let targetFrameB = Math.max(0, currentFrameB - 1);
+                video.currentTime = targetFrameB * frameDuration;
+                break;
+            case 'frameForward': 
+                let currentFrameF = Math.round(video.currentTime / frameDuration);
+                let targetFrameF = currentFrameF + 1;
+                video.currentTime = Math.min(video.duration, targetFrameF * frameDuration);
+                break;
+            case 'stepForward': video.currentTime = Math.min(video.duration, video.currentTime + 0.1); break;
+        }
+    }
+
+    function startHold(action) {
+        // 先執行一次 (作為 click 的效果)
+        executeAction(action);
+        
+        // 清除舊計時器，避免重複啟動
+        clearTimeout(holdTimer); 
+        
+        // 啟動重複執行計時器
+        holdTimer = setInterval(() => {
+            executeAction(action);
+        }, holdInterval);
+    }
+    
+    function stopHold() {
+        clearInterval(holdTimer);
+        holdTimer = null;
+    }
+    
+    const holdButtons = [
+        { id: stepBackwardBtn, action: 'stepBackward' },
+        { id: frameBackwardBtn, action: 'frameBackward' },
+        { id: frameForwardBtn, action: 'frameForward' },
+        { id: stepForwardBtn, action: 'stepForward' }
+    ];
+
+    // 為所有長按按鈕添加事件監聽器
+    holdButtons.forEach(btn => {
+        // 桌面端 (滑鼠按下)
+        btn.id.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            // 在長按開始前，先執行一次動作，並等待 300ms 再開始重複
+            executeAction(btn.action); 
+            
+            clearTimeout(holdTimer); 
+            holdTimer = setTimeout(() => {
+                // 如果 300ms 後滑鼠還沒放開，則開始重複執行
+                startHold(btn.action);
+            }, 300); 
+        });
+        
+        // 桌面端 (滑鼠釋放或離開)
+        const stopEvents = ['mouseup', 'mouseleave'];
+        stopEvents.forEach(event => {
+            btn.id.addEventListener(event, () => {
+                 clearTimeout(holdTimer);
+                 if (holdTimer) stopHold();
+            });
+        });
+        
+        // 行動端 (觸摸開始)
+        btn.id.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            executeAction(btn.action); 
+            
+            clearTimeout(holdTimer);
+            holdTimer = setTimeout(() => {
+                startHold(btn.action);
+            }, 300);
+        }, { passive: false });
+
+        // 行動端 (觸摸結束)
+        const touchStopEvents = ['touchend', 'touchcancel'];
+        touchStopEvents.forEach(event => {
+            btn.id.addEventListener(event, () => {
+                 clearTimeout(holdTimer);
+                 if (holdTimer) stopHold();
+            });
+        });
+    });
+    
     // --- FPS 處理邏輯 (保持不變) ---
     function updateFps(fpsValue) {
         let newFps;
@@ -567,18 +561,28 @@ input[type="range"] {
     });
     updateFps(fpsSelect.value); 
 
-    // --- 速度選單邏輯 (保持不變) ---
+    // --- 速度選單邏輯 ---
     speedBtn.addEventListener('click', (e) => {
         const rect = speedBtn.getBoundingClientRect();
         const controlsPanelRect = controlsPanel.getBoundingClientRect(); 
         
-        // 速度選單需要重新計算定位，使其浮動在控制面板上方，但不超出 video-wrapper
-        const wrapperRect = videoWrapper.getBoundingClientRect();
-        const btnRight = wrapperRect.right - rect.right; 
+        // 速度選單應該浮動在控制面板的上方
+        const btnRight = controlsPanelRect.right - rect.right; 
         
-        // 設定 speedMenu 的位置 (從底部算起，以避免超出螢幕)
-        speedMenu.style.bottom = `${controlsPanelRect.offsetHeight + 5}px`; /* 高於控制面板一點點 */
-        speedMenu.style.right = `${btnRight}px`; 
+        // 設定 speedMenu 的位置 (高於控制面板，且在 controls-playback 群組上方)
+        const playbackGroup = document.querySelector('.controls-group.controls-playback');
+        const playbackHeight = playbackGroup.offsetHeight;
+
+        // 計算 bottom 位置: 底部安全區 + controls-setup + controls-playback
+        const controlsSetupHeight = document.querySelector('.controls-group.controls-setup').offsetHeight;
+        const totalBottomPadding = 10 + (window.visualViewport?.height - window.innerHeight) || 0; // 估計安全區高度
+        
+        // 相對於 controls-panel 的底部 (0) 往上移 (controls-setup + controls-playback)
+        // 實際計算: 使用 controlsPanelRect 的底部作為基準
+        const bottomOffset = controlsPanel.offsetHeight - (rect.top - controlsPanelRect.top) + 10;
+        
+        speedMenu.style.bottom = `${controlsSetupHeight + playbackHeight + 20}px`; 
+        speedMenu.style.right = `10px`; // 簡單固定在右側邊緣 
         
         speedMenu.style.display = speedMenu.style.display === 'flex' ? 'none' : 'flex';
         e.stopPropagation(); 
@@ -612,7 +616,7 @@ input[type="range"] {
     });
 
 
-    // --- 影片控制邏輯 ---
+    // --- 影片控制邏輯 (保持不變) ---
     
     // 1. 載入影片檔案
     fileInput.addEventListener('change', (e) => {
